@@ -3,21 +3,21 @@
     "short_name": "MQTT Monitor",
     "description": "Приложение для мониторинга MQTT",
     "version": "1.0.0",
-    "start_url": "/",
-    "scope": "/",
+    "start_url": "/mqmon/",
+    "scope": "/mqmon/",
     "display": "standalone",
     "orientation": "portrait",
     "theme_color": "#2196f3",
     "background_color": "#ffffff",
     "icons": [
         {
-            "src": "/static/icons/icon-192.png",
+            "src": "/mqmon/icons/icon-192.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any maskable"
         },
         {
-            "src": "/static/icons/icon-512.png",
+            "src": "/mqmon/icons/icon-512.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any maskable"

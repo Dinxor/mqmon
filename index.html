@@ -13,15 +13,15 @@
     <meta name="description" content="Мониторинг датчиков MQTT">
     
     <!-- Manifest -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="/mqmon/manifest.json">
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/mqmon/icons/icon-192.png">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/mqmon/css/style.css">
     
     <!-- Paho MQTT -->
-    <script src="/static/js/paho-mqtt.js"></script>
+    <script src="/mqmon/js/paho-mqtt.js"></script>
 </head>
 <body>
     <div class="container">
@@ -50,15 +50,15 @@
     </div>
 
     <!-- App JS -->
-    <script src="/static/js/app.js"></script>
+    <script src="/mqmon/js/app.js"></script>
     
     <!-- Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
-                    const registration = await navigator.serviceWorker.register('/sw.js', {
-                        scope: '/'
+                    const registration = await navigator.serviceWorker.register('/mqmon/sw.js', {
+                        scope: '/mqmon/'
                     });
                     console.log('ServiceWorker registered:', registration);
                     
