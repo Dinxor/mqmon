@@ -77,58 +77,59 @@ class MQTTPWAApp {
         }
     }
     
-    initMqttConnection() {
-        if (!this.mqttHost || !this.mqttPort) {
-            console.error('MQTT configuration not available');
-            return;
-        }
-        
-        // Check if Paho is available
-        if (typeof Paho === 'undefined') {
-            console.error('Paho library not available');
-            return;
-        }
-        
-        // Generate client ID
-        const clientId = `mqtt_pwa_${Math.random().toString(16).substr(2, 8)}`;
-        
-        try {
-            this.client = new Paho.Client(
-                this.mqttHost,
-                Number(this.mqttPort),
-                clientId
-            );
-            
-            // Set callbacks
-            this.client.onConnectionLost = this.onConnectionLost.bind(this);
-            this.client.onMessageArrived = this.onMessageArrived.bind(this);
-            
-            // Connect options
-            const connectOptions = {
-                timeout: 30,
-                keepAliveInterval: 60,
-                reconnect: true,
-                onSuccess: this.onConnect.bind(this),
-                onFailure: this.onConnectFailure.bind(this)
-            };
-            
-            // Add authentication if provided
-            if (this.mqttUsername) {
-                connectOptions.userName = this.mqttUsername;
-                if (this.mqttPassword) {
-                    connectOptions.password = this.mqttPassword;
-                }
-            }
-            
-            // Connect
-            this.client.connect(connectOptions);
-            
-        } catch (error) {
-            console.error('Failed to create Paho client:', error);
-            this.updateMQTTStatus(false);
-        }
+initMqttConnection() {
+    if (!this.mqttHost || !this.mqttPort) {
+        console.error('❌ MQTT configuration not available');
+        return;
     }
     
+    if (typeof Paho === 'undefined') {
+        console.error('❌ Paho library not available');
+        return;
+    }
+    
+    const clientId = `mqtt_pwa_${Math.random().toString(16).substr(2, 8)}`;
+    
+    try {
+        // Paho.Client(host, port, path, clientId)
+        this.client = new Paho.Client(
+            this.mqttHost,
+            Number(this.mqttPort),
+            '/mqtt',  // EMQX требует путь /mqtt
+            clientId
+        );
+        
+        this.client.onConnectionLost = this.onConnectionLost.bind(this);
+        this.client.onMessageArrived = this.onMessageArrived.bind(this);
+        
+        const connectOptions = {
+            timeout: 30,
+            keepAliveInterval: 60,
+            reconnect: true,
+            onSuccess: this.onConnect.bind(this),
+            onFailure: this.onConnectFailure.bind(this)
+        };
+        
+        if (this.mqttUsername) {
+            connectOptions.userName = this.mqttUsername;
+            if (this.mqttPassword) {
+                connectOptions.password = this.mqttPassword;
+            }
+        }
+        
+        // 🔑 КЛЮЧЕВОЙ МОМЕНТ: useSSL определяет ws:// vs wss://
+        const isHttps = window.location.protocol === 'https:';
+        connectOptions.useSSL = isHttps;
+        
+        console.log(`📡 MQTT connection: ${isHttps ? 'WSS (secure)' : 'WS (plain)'} to ${this.mqttHost}:${this.mqttPort}`);
+        
+        this.client.connect(connectOptions);
+        
+    } catch (error) {
+        console.error('❌ Failed to create Paho client:', error);
+        this.updateMQTTStatus(false);
+    }
+}    
     onConnect() {
         console.log('✅ MQTT Connected');
         this.updateMQTTStatus(true);
