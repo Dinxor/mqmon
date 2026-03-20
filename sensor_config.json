@@ -1,0 +1,407 @@
+{
+    "sections": {
+        "1": {
+            "title": "🌡️ Температура",
+            "order": 1
+        },
+        "3": {
+            "title": "📊 Коэффициенты расхода",
+            "order": 2
+        },
+        "2": {
+            "title": "🌡️ Температура бассейнов",
+            "order": 3
+        },
+        "4": {
+            "title": "📊 Время работы станков",
+            "order": 4
+        },
+        "5": {
+            "title": "📊 Время работы сушилок",
+            "order": 5
+        },
+        "6": {
+            "title": "📊 Время работы ребросклейки",
+            "order": 6
+        },
+        "7": {
+            "title": "📊 Время работы починки",
+            "order": 7
+        },
+        "8": {
+            "title": "📊 Время работы цех 3",
+            "order": 8
+        },
+        "9": {
+            "title": "📊 Время работы цех 32",
+            "order": 9
+        }
+    },
+    "sensors": {
+        "air": {
+            "name": "Температура на улице",
+            "section": "1",
+            "unit": "°C"
+        },
+        "koef1": {
+            "name": "Станок 1",
+            "section": "3",
+            "unit": ""
+        },
+        "koef2": {
+            "name": "Станок 2",
+            "section": "3",
+            "unit": ""
+        },
+        "koef4": {
+            "name": "Станок 4",
+            "section": "3",
+            "unit": ""
+        },
+        "koef5": {
+            "name": "Станок 5",
+            "section": "3",
+            "unit": ""
+        },
+        "koef0": {
+            "name": "Общий",
+            "section": "3",
+            "unit": ""
+        },
+        "pool1": {
+            "name": "Бассейн 1",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool1": {
+            "name": "Бассейн 1",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool2": {
+            "name": "Бассейн 2",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool3": {
+            "name": "Бассейн 3",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool4": {
+            "name": "Бассейн 4",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool5": {
+            "name": "Бассейн 5",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool6": {
+            "name": "Бассейн 6",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool7": {
+            "name": "Бассейн 7",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool8": {
+            "name": "Бассейн 8",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool9": {
+            "name": "Бассейн 9",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool10": {
+            "name": "Бассейн 10",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool11": {
+            "name": "Бассейн 11",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool12": {
+            "name": "Бассейн 12",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool13": {
+            "name": "Бассейн 13",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool14": {
+            "name": "Бассейн 14",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool15": {
+            "name": "Бассейн 15",
+            "section": "2",
+            "unit": "°C"
+        },
+        "pool16": {
+            "name": "Бассейн 16",
+            "section": "2",
+            "unit": "°C"
+        },
+        "tm1": {
+            "name": "Станок 1",
+            "section": "4",
+            "unit": ""
+        },
+        "tm2": {
+            "name": "Станок 2",
+            "section": "4",
+            "unit": ""
+        },
+        "tm4": {
+            "name": "Станок 4",
+            "section": "4",
+            "unit": ""
+        },
+        "tm5": {
+            "name": "Станок 5",
+            "section": "4",
+            "unit": ""
+        },
+        "tm6": {
+            "name": "Сушилка 1",
+            "section": "5",
+            "unit": ""
+        },
+        "tm7": {
+            "name": "Сушилка 2",
+            "section": "5",
+            "unit": ""
+        },
+        "tm8": {
+            "name": "Сушилка 3",
+            "section": "5",
+            "unit": ""
+        },
+        "tm9": {
+            "name": "Сушилка 4",
+            "section": "5",
+            "unit": ""
+        },
+        "tm10": {
+            "name": "РС 1",
+            "section": "6",
+            "unit": ""
+        },
+        "tm11": {
+            "name": "РС 2",
+            "section": "6",
+            "unit": ""
+        },
+        "tm12": {
+            "name": "РС 3",
+            "section": "6",
+            "unit": ""
+        },
+        "tm13": {
+            "name": "РС 4",
+            "section": "6",
+            "unit": ""
+        },
+        "tm14": {
+            "name": "Вальцы 1 - 1",
+            "section": "8",
+            "unit": ""
+        },
+        "tm15": {
+            "name": "Вальцы 2 - 1",
+            "section": "8",
+            "unit": ""
+        },
+        "tm16": {
+            "name": "Вальцы 3 - 1",
+            "section": "8",
+            "unit": ""
+        },
+        "tm17": {
+            "name": "Вальцы 4 - 1",
+            "section": "8",
+            "unit": ""
+        },
+        "tm18": {
+            "name": "Вальцы 1 - 2",
+            "section": "8",
+            "unit": ""
+        },
+        "tm19": {
+            "name": "Вальцы 2 - 2",
+            "section": "8",
+            "unit": ""
+        },
+        "tm21": {
+            "name": "Вальцы 1 - 32",
+            "section": "9",
+            "unit": ""
+        },
+        "tm22": {
+            "name": "Вальцы 2 - 32",
+            "section": "9",
+            "unit": ""
+        },
+        "tm23": {
+            "name": "Пресс 1",
+            "section": "8",
+            "unit": ""
+        },
+        "tm24": {
+            "name": "Пресс 2",
+            "section": "8",
+            "unit": ""
+        },
+        "tm25": {
+            "name": "Пресс 3",
+            "section": "8",
+            "unit": ""
+        },
+        "tm26": {
+            "name": "Обрезной",
+            "section": "8",
+            "unit": ""
+        },
+        "tm27": {
+            "name": "Шлифовальный",
+            "section": "8",
+            "unit": ""
+        },
+        "tm28": {
+            "name": "Пресс 32",
+            "section": "9",
+            "unit": ""
+        },
+        "tm29": {
+            "name": "Обрезной 32",
+            "section": "9",
+            "unit": ""
+        },
+        "tm30": {
+            "name": "Шлифовальный 32",
+            "section": "9",
+            "unit": ""
+        },
+        "tm31": {
+            "name": "Окорочный станок",
+            "section": "4",
+            "unit": ""
+        },
+        "tm36": {
+            "name": "Попарная наборка 1",
+            "section": "9",
+            "unit": ""
+        },
+        "tm37": {
+            "name": "Попарная наборка 2",
+            "section": "9",
+            "unit": ""
+        },
+        "tm39": {
+            "name": "Сортировка цеха 3",
+            "section": "8",
+            "unit": ""
+        },
+        "tm42": {
+            "name": "Починка 1",
+            "section": "7",
+            "unit": ""
+        },
+        "tm43": {
+            "name": "Починка 2",
+            "section": "7",
+            "unit": ""
+        },
+        "tm44": {
+            "name": "Починка 3",
+            "section": "7",
+            "unit": ""
+        },
+        "tm45": {
+            "name": "Починка 4",
+            "section": "7",
+            "unit": ""
+        },
+        "tm46": {
+            "name": "Починка 5",
+            "section": "7",
+            "unit": ""
+        },
+        "tm47": {
+            "name": "Починка 6",
+            "section": "7",
+            "unit": ""
+        },
+        "tm48": {
+            "name": "Починка 7",
+            "section": "7",
+            "unit": ""
+        },
+        "tm49": {
+            "name": "Починка 8",
+            "section": "7",
+            "unit": ""
+        },
+        "tm50": {
+            "name": "Починка 9",
+            "section": "7",
+            "unit": ""
+        },
+        "tm51": {
+            "name": "Починка 10",
+            "section": "7",
+            "unit": ""
+        },
+        "tm52": {
+            "name": "Починка 11",
+            "section": "7",
+            "unit": ""
+        },
+        "tm53": {
+            "name": "Починка 12",
+            "section": "7",
+            "unit": ""
+        },
+        "tm54": {
+            "name": "Починка 13",
+            "section": "7",
+            "unit": ""
+        },
+        "tm55": {
+            "name": "Починка 14",
+            "section": "7",
+            "unit": ""
+        },
+        "tm56": {
+            "name": "Упаковка цеха 3",
+            "section": "8",
+            "unit": ""
+        },
+        "tm57": {
+            "name": "Пила ЛЦ",
+            "section": "4",
+            "unit": ""
+        },
+        "tm58": {
+            "name": "Пила ПА",
+            "section": "4",
+            "unit": ""
+        },
+        "tm59": {
+            "name": "Пила АЦ",
+            "section": "4",
+            "unit": ""
+        }
+    }
+}

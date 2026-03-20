@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MQTT Monitor</title>
+    
+    <!-- PWA Meta tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MQTT Monitor">
+    <meta name="description" content="Мониторинг датчиков MQTT">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- Paho MQTT -->
+    <script src="/static/js/paho-mqtt.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Монитор</h1>
+            <div class="status-bar">
+                <span id="connection-status" class="status offline">🔴 Offline</span>
+                <span id="mqtt-status" class="status disconnected">⚫ MQTT Disconnected</span>
+            </div>
+        </header>
+
+        <main>
+            <div id="sensors-data" class="sensors-grid">
+                <p class="no-data">Нет данных. Ожидание сообщений...</p>
+            </div>
+            
+            <div id="last-update" class="last-update">
+                Последнее обновление: <span id="update-time">—</span>
+            </div>
+        </main>
+
+        <footer>
+            <p>Версия: <span id="app-version">1.0.0</span></p>
+            <button id="check-updates" class="btn" style="display: none;">🔍 Проверить обновления</button>
+        </footer>
+    </div>
+
+    <!-- App JS -->
+    <script src="/static/js/app.js"></script>
+    
+    <!-- Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js', {
+                        scope: '/'
+                    });
+                    console.log('ServiceWorker registered:', registration);
+                    
+                    window.addEventListener('online', () => {
+                        console.log('🟢 Back online');
+                        window.app?.checkForUpdates?.(false);
+                    });
+                } catch (error) {
+                    console.log('ServiceWorker registration failed:', error);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
