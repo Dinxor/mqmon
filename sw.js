@@ -320,8 +320,8 @@ self.addEventListener('push', (event) => {
     
     const options = {
         body: data.body || 'Новое обновление доступно',
-        icon: '/static/icons/icon-192.png',
-        badge: '/static/icons/icon-192.png',
+        icon: '/mqmon/icons/icon-192.png',
+        badge: '/mqmon/icons/icon-192.png',
         vibrate: [200, 100, 200],
         data: {
             url: data.url || '/'

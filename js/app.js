@@ -54,7 +54,7 @@ class MQTTPWAApp {
     
     async loadSensorConfig() {
         try {
-            const r = await fetch('/static/sensor_config.json');
+            const r = await fetch('/mqmon/sensor_config.json');
             this.sensorConfig = await r.json();
         } catch (e) {
             this.sensorConfig = { sections: {}, sensors: {} };
@@ -63,7 +63,7 @@ class MQTTPWAApp {
     
     async loadMqttConfig() {
         try {
-            const response = await fetch('/static/mqtt-config.json');
+            const response = await fetch('/mqmon/mqtt-config.json');
             const config = await response.json();
             
             // Parse MQTT connection details
