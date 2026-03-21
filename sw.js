@@ -96,7 +96,7 @@ self.addEventListener('fetch', (event) => {
                 })
                 .catch(() => {
                     // Сеть недоступна - показываем офлайн страницу
-                    return caches.match('/offline.html');
+                    return caches.match('/mqmon/offline.html');
                 })
         );
         return;
@@ -123,7 +123,7 @@ self.addEventListener('fetch', (event) => {
                     .catch(() => {
                         // Для навигации без кэша - офлайн страница
                         if (event.request.mode === 'navigate') {
-                            return caches.match('/offline.html');
+                            return caches.match('/mqmon/offline.html');
                         }
                     });
             })
@@ -193,7 +193,7 @@ async function checkForUpdates(client) {
         console.log('🔍 Checking for updates...');
         
         // Для читаем версию из manifest.json
-        const response = await fetch(`/manifest.json?_=${Date.now()}`, {
+        const response = await fetch(`/mqmon/manifest.json?_=${Date.now()}`, {
             cache: 'no-store',
             headers: {
                 'Cache-Control': 'no-cache'
@@ -209,7 +209,7 @@ async function checkForUpdates(client) {
 
         // Получаем текущую версию из кэша
         const cache = await caches.open(STATIC_CACHE);
-        const cachedManifest = await cache.match('/manifest.json');
+        const cachedManifest = await cache.match('/mqmon/manifest.json');
 
         if (cachedManifest) {
             const cachedData = await cachedManifest.json();
@@ -324,7 +324,7 @@ self.addEventListener('push', (event) => {
         badge: '/mqmon/icons/icon-192.png',
         vibrate: [200, 100, 200],
         data: {
-            url: data.url || '/'
+            url: data.url || '/mqmon/'
         },
         actions: [
             {
