@@ -10,7 +10,7 @@ class MQTTPWAApp {
         this.serviceWorkerSupported = 'serviceWorker' in navigator;
         this.serviceWorkerReady = false;
         this.sensorConfig = null;
-        this.sectionStates = this.loadSectionStates() || {};
+        this.sectionStates = {};
         
         // Paho specific properties
         this.mqttHost = null;
@@ -56,8 +56,21 @@ class MQTTPWAApp {
         try {
             const r = await fetch('/mqmon/sensor_config.json');
             this.sensorConfig = await r.json();
+            
+            // ⚠️ Инициализируем состояния после загрузки конфига
+            const saved = this.loadSectionStates();
+            if (saved && Object.keys(saved).length > 0) {
+                this.sectionStates = saved;
+            } else {
+                // Все секции свернуты по умолчанию
+                const sections = this.sensorConfig?.sections || {};
+                for (const secId in sections) {
+                    this.sectionStates[secId] = true;
+                }
+            }
         } catch (e) {
             this.sensorConfig = { sections: {}, sensors: {} };
+            this.sectionStates = {};
         }
     }
     
@@ -358,7 +371,7 @@ initMqttConnection() {
         
         let html = '';
         for (const [secId, secData] of sorted) {
-            const collapsed = true;
+            const collapsed = this.sectionStates[secId] === true;
             html += `
                 <div class="data-section">
                     <div class="section-header" onclick="window.app.toggleSection('${secId}')">
