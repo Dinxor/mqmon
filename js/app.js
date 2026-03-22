@@ -236,8 +236,11 @@ initMqttConnection() {
 
             if (newVersion !== this.version && manual) {
                 if (confirm(`Доступна версия ${newVersion}. Обновить?`)) {
-                    this.version = newVersion;
-                    window.location.reload(true);
+//                    this.version = newVersion;
+                    const versionSpan = document.getElementById('app-version');
+                    if (versionSpan) {
+                        versionSpan.textContent = newVersion;
+                    }                    window.location.reload(true);
                 }
             } else if (manual) {
                 alert('✅ Приложение актуально');
@@ -355,7 +358,7 @@ initMqttConnection() {
         
         let html = '';
         for (const [secId, secData] of sorted) {
-            const collapsed = this.sectionStates[secId] === false;
+            const collapsed = true;
             html += `
                 <div class="data-section">
                     <div class="section-header" onclick="window.app.toggleSection('${secId}')">
