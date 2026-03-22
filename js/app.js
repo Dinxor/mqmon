@@ -67,6 +67,8 @@ class MQTTPWAApp {
                 for (const secId in sections) {
                     this.sectionStates[secId] = true;
                 }
+            // Сохраняем начальное состояние
+            this.saveSectionStates();
             }
         } catch (e) {
             this.sensorConfig = { sections: {}, sensors: {} };
