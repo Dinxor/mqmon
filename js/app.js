@@ -230,7 +230,7 @@ initMqttConnection() {
     async checkForUpdates(manual) {
         try {
             // Для GitHub Pages - читаем версию из manifest.json
-            const r = await fetch('/manifest.json');
+            const r = await fetch('/mqmon/manifest.json');
             const d = await r.json();
             const newVersion = d.version || '1.0.0';
 
