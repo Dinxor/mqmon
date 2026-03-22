@@ -236,6 +236,7 @@ initMqttConnection() {
 
             if (newVersion !== this.version && manual) {
                 if (confirm(`Доступна версия ${newVersion}. Обновить?`)) {
+                    this.version = newVersion;
                     window.location.reload(true);
                 }
             } else if (manual) {
