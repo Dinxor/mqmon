@@ -173,11 +173,12 @@ initMqttConnection() {
         const message = new Paho.Message(JSON.stringify({
             status: status,
             version: this.version,
+            client: this.client.clientId,
             timestamp: new Date().toISOString()
         }));
         message.destinationName = 'app/status';
         message.qos = 1;
-        message.retained = true;
+        message.retained = false;
         
         this.client.send(message);
     }
@@ -353,7 +354,7 @@ initMqttConnection() {
         
         let html = '';
         for (const [secId, secData] of sorted) {
-            const collapsed = this.sectionStates[secId] === true;
+            const collapsed = this.sectionStates[secId] === false;
             html += `
                 <div class="data-section">
                     <div class="section-header" onclick="window.app.toggleSection('${secId}')">
