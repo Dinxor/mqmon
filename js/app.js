@@ -70,11 +70,9 @@ class MQTTPWAApp {
         if (!code) {
             return false;
         }
-        
+        this.saveAccessCode(code);
+        this.privateAccessCode = code;
         if (this.validateAccessCode(code)) {
-            this.saveAccessCode(code);
-            this.privateAccessCode = code;
-            
             if (this.client && this.client.isConnected() && this.privateTopicBase) {
                 this.subscribeToPrivateTopic();
             }
@@ -454,12 +452,12 @@ class MQTTPWAApp {
             if (input) {
                 const code = input.value.trim();
                 if (this.setAccessCode(code)) {
-                    // Обновляем панель для отображения статуса
-                    this.renderSettingsPanel();
                     // Если MQTT подключен, подписываемся на приватный топик
                     if (this.client && this.client.isConnected() && this.privateTopicBase) {
                         this.subscribeToPrivateTopic();
                     }
+                    // Обновляем панель для отображения статуса
+                    this.renderSettingsPanel();
                     // Отправляем статус с обновленной информацией
                     if (this.client && this.client.isConnected()) {
                         this.publishStatus('online');
