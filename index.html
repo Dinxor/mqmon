@@ -28,17 +28,16 @@
         <header>
             <h1>📊 Монитор</h1>
             <div class="status-bar">
-                <span id="mqtt-status" class="status disconnected">⚫ MQTT Disconnected</span>
+                <span id="mqtt-status" class="status disconnected">⚫ Ожидание подключения</span>
+            </div>
+            <div id="last-update" class="last-update">
+                Последнее обновление данных: <span id="update-time">—</span>
             </div>
         </header>
 
         <main>
             <div id="sensors-data" class="sensors-grid">
-                <p class="no-data">Нет данных. Ожидание сообщений...</p>
-            </div>
-            
-            <div id="last-update" class="last-update">
-                Последнее обновление: <span id="update-time">—</span>
+                <p class="no-data">Нет данных. Ожидание...</p>
             </div>
         </main>
 

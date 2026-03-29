@@ -3,7 +3,7 @@ class MQTTPWAApp {
         this.mqttClient = null;
         this.client = null;  // Paho client
         this.sensorData = this.loadFromCache() || {};
-        this.version = document.getElementById('app-version')?.textContent || '1.0.0';
+        this.version = document.getElementById('app-version')?.textContent || '1.0.7';
         this.updateTimeElement = document.getElementById('update-time');
         this.sensorsGrid = document.getElementById('sensors-data');
         this.isOnline = navigator.onLine;
@@ -19,12 +19,100 @@ class MQTTPWAApp {
         this.mqttUsername = null;
         this.mqttPassword = null;
         
+        this.appId = this.loadOrGenerateAppId();
+        this.privateTopicBase = null;
+        this.privateAccessCode = null;
+        
         this.init();
+    }
+    
+    // Загрузка или генерация уникального ID
+    loadOrGenerateAppId() {
+        const stored = localStorage.getItem('appInstanceId');
+        if (stored) return stored;
+        
+        const newId = Math.floor(Math.random() * 90000000 + 10000000).toString();
+        localStorage.setItem('appInstanceId', newId);
+        return newId;
+    }
+    
+    loadAccessCode() {
+        return localStorage.getItem('accessCode') || '';
+    }
+    
+    saveAccessCode(code) {
+        localStorage.setItem('accessCode', code);
+    }
+    
+    validateAccessCode(code) {
+        if (!code || !/^\d+$/.test(code)) {
+            return false;
+        }
+        
+        const codeNum = parseInt(code, 10);
+        const PRIME = 3517;
+        const EXPECTED_REMAINDER = 13;
+        return codeNum % PRIME === EXPECTED_REMAINDER;
+    }
+    
+    async loadPrivateTopicConfig() {
+        try {
+            const response = await fetch('/mqmon/mqtt-config.json');
+            const config = await response.json();
+            this.privateTopicBase = config.private_topic || null;
+        } catch (error) {
+            console.error('Failed to load private topic config:', error);
+            this.privateTopicBase = null;
+        }
+    }
+    
+    setAccessCode(code) {
+        if (!code) {
+            return false;
+        }
+        
+        if (this.validateAccessCode(code)) {
+            this.saveAccessCode(code);
+            this.privateAccessCode = code;
+            
+            if (this.client && this.client.isConnected() && this.privateTopicBase) {
+                this.subscribeToPrivateTopic();
+            }
+            
+            return true;
+        }
+        
+        return false;
+    }
+    
+    subscribeToPrivateTopic() {
+        if (!this.client || !this.client.isConnected()) {
+            console.log('Cannot subscribe - client not connected');
+            return false;
+        }
+        
+        if (!this.privateTopicBase) {
+            return false;
+        }
+        
+        if (!this.validateAccessCode(this.privateAccessCode)) {
+            return false;
+        }
+        
+        this.client.subscribe(this.privateTopicBase);
+        return true;
     }
     
     async init() {
         await this.loadSensorConfig();
         await this.loadMqttConfig();
+        await this.loadPrivateTopicConfig();
+        
+        const savedCode = this.loadAccessCode();
+        if (savedCode && this.validateAccessCode(savedCode)) {
+            this.privateAccessCode = savedCode;
+        }
+        
         this.setupEventListeners();
         
         if (this.serviceWorkerSupported) await this.waitForServiceWorker();
@@ -32,6 +120,7 @@ class MQTTPWAApp {
         
         this.renderSensors();
         this.updateLastUpdateTime();
+        this.renderSettingsPanel();
         
         // Check if Paho library is loaded (both ways)
         if (typeof Paho === 'undefined') {
@@ -56,23 +145,8 @@ class MQTTPWAApp {
         try {
             const r = await fetch('/mqmon/sensor_config.json');
             this.sensorConfig = await r.json();
-            
-            // ⚠️ Инициализируем состояния после загрузки конфига
-            const saved = this.loadSectionStates();
-            if (saved && Object.keys(saved).length > 0) {
-                this.sectionStates = saved;
-            } else {
-                // Все секции свернуты по умолчанию
-                const sections = this.sensorConfig?.sections || {};
-                for (const secId in sections) {
-                    this.sectionStates[secId] = true;
-                }
-            // Сохраняем начальное состояние
-            this.saveSectionStates();
-            }
         } catch (e) {
             this.sensorConfig = { sections: {}, sensors: {} };
-            this.sectionStates = {};
         }
     }
     
@@ -92,59 +166,56 @@ class MQTTPWAApp {
         }
     }
     
-initMqttConnection() {
-    if (!this.mqttHost || !this.mqttPort) {
+    initMqttConnection() {
+        if (!this.mqttHost || !this.mqttPort) {
         console.error('❌ MQTT configuration not available');
-        return;
-    }
-    
-    if (typeof Paho === 'undefined') {
-        console.error('❌ Paho library not available');
-        return;
-    }
-    
-    const clientId = `mqtt_pwa_${Math.random().toString(16).substr(2, 8)}`;
-    
-    try {
-        // Paho.Client(host, port, path, clientId)
-        this.client = new Paho.Client(
-            this.mqttHost,
-            Number(this.mqttPort),
-            '/mqtt',  // EMQX требует путь /mqtt
-            clientId
-        );
-        
-        this.client.onConnectionLost = this.onConnectionLost.bind(this);
-        this.client.onMessageArrived = this.onMessageArrived.bind(this);
-        
-        const connectOptions = {
-            timeout: 30,
-            keepAliveInterval: 60,
-            reconnect: true,
-            onSuccess: this.onConnect.bind(this),
-            onFailure: this.onConnectFailure.bind(this)
-        };
-        
-        if (this.mqttUsername) {
-            connectOptions.userName = this.mqttUsername;
-            if (this.mqttPassword) {
-                connectOptions.password = this.mqttPassword;
-            }
+            return;
         }
         
-        // 🔑 КЛЮЧЕВОЙ МОМЕНТ: useSSL определяет ws:// vs wss://
+        if (typeof Paho === 'undefined') {
+        console.error('❌ Paho library not available');
+            return;
+        }
+        
+        const clientId = `mqtt_pwa_${this.appId}`;
+        
+        try {
+            this.client = new Paho.Client(
+                this.mqttHost,
+                Number(this.mqttPort),
+                '/mqtt',
+                clientId
+            );
+            
+            this.client.onConnectionLost = this.onConnectionLost.bind(this);
+            this.client.onMessageArrived = this.onMessageArrived.bind(this);
+            
+            const connectOptions = {
+                timeout: 30,
+                keepAliveInterval: 60,
+                reconnect: true,
+                onSuccess: this.onConnect.bind(this),
+                onFailure: this.onConnectFailure.bind(this)
+            };
+            
+            if (this.mqttUsername) {
+                connectOptions.userName = this.mqttUsername;
+                if (this.mqttPassword) {
+                    connectOptions.password = this.mqttPassword;
+                }
+            }
+            
         const isHttps = window.location.protocol === 'https:';
         connectOptions.useSSL = isHttps;
-        
         console.log(`📡 MQTT connection: ${isHttps ? 'WSS (secure)' : 'WS (plain)'} to ${this.mqttHost}:${this.mqttPort}`);
-        
-        this.client.connect(connectOptions);
-        
-    } catch (error) {
+            this.client.connect(connectOptions);
+            
+        } catch (error) {
         console.error('❌ Failed to create Paho client:', error);
-        this.updateMQTTStatus(false);
+            this.updateMQTTStatus(false);
+        }
     }
-}    
+    
     onConnect() {
         console.log('✅ MQTT Connected');
         this.updateMQTTStatus(true);
@@ -177,9 +248,10 @@ initMqttConnection() {
         }
         
         this.mqttTopics.forEach(topic => {
-            console.log(`Subscribing`);
             this.client.subscribe(topic);
         });
+        
+        this.subscribeToPrivateTopic();
     }
     
     publishStatus(status) {
@@ -189,11 +261,13 @@ initMqttConnection() {
             status: status,
             version: this.version,
             client: this.client.clientId,
+            appId: this.appId,
+            appCode: this.privateAccessCode,
             timestamp: new Date().toISOString()
         }));
-        message.destinationName = 'app/status';
+        message.destinationName = `homeassistant/sensor/73AF8758D1C738B3/1/${this.appId}`;
         message.qos = 1;
-        message.retained = false;
+        message.retained = true;
         
         this.client.send(message);
     }
@@ -238,8 +312,7 @@ initMqttConnection() {
     }
     
     setupEventListeners() {
-        document.getElementById('check-updates')?.addEventListener('click', () => this.checkForUpdates(true));
-        document.getElementById('hard-reset')?.addEventListener('click', () => this.hardReset());
+        // Event listeners будут добавлены динамически через renderSettingsPanel
     }
     
     async checkForUpdates(manual) {
@@ -247,15 +320,15 @@ initMqttConnection() {
             // Для GitHub Pages - читаем версию из manifest.json
             const r = await fetch('/mqmon/manifest.json');
             const d = await r.json();
-            const newVersion = d.version || '1.0.0';
+            const newVersion = d.version || '1.0.7';
 
             if (newVersion !== this.version && manual) {
                 if (confirm(`Доступна версия ${newVersion}. Обновить?`)) {
-//                    this.version = newVersion;
                     const versionSpan = document.getElementById('app-version');
                     if (versionSpan) {
                         versionSpan.textContent = newVersion;
-                    }                    window.location.reload(true);
+                    }
+                    window.location.reload(true);
                 }
             } else if (manual) {
                 alert('✅ Приложение актуально');
@@ -267,10 +340,13 @@ initMqttConnection() {
     }
     
     async hardReset() {
-        if (confirm('Сбросить?')) {
-            localStorage.clear();
+        if (confirm('Сбросить все данные? (ID приложения и код доступа сохранятся)')) {
             this.sensorData = {};
-            window.location.reload(true);
+            localStorage.removeItem('sensorData');
+            localStorage.removeItem('sectionStates');
+            this.sectionStates = {};
+            this.renderSensors();
+            alert('✅ Данные датчиков очищены');
         }
     }
     
@@ -315,7 +391,6 @@ initMqttConnection() {
             }
         }
         
-        // Форматирование для секций 4-9 (время работы)
         const numId = Number(sectionId);
         if (numId >= 4 && numId <= 9) {
             const val = String(value);
@@ -335,6 +410,75 @@ initMqttConnection() {
         }
         
         return { value: value, unit: '' };
+    }
+    
+    renderSettingsPanel() {
+        const footer = document.querySelector('footer');
+        if (!footer) return;
+        
+        const currentCode = this.loadAccessCode();
+        const isExpanded = localStorage.getItem('settingsExpanded') === 'true';
+        const isCodeValid = this.validateAccessCode(currentCode);
+        
+        const settingsHtml = `
+            <div class="settings-panel">
+                <div class="settings-header" onclick="window.app.toggleSettings()">
+                    <span>⚙️ Настройки</span>
+                    <span class="settings-toggle">${isExpanded ? '▼' : '▶'}</span>
+                </div>
+                <div class="settings-content ${isExpanded ? '' : 'collapsed'}">
+                    <div class="setting-item">
+                        <label>📱 ID приложения:</label>
+                        <div class="app-id-display">${this.appId}</div>
+                    </div>
+                    <div class="setting-item">
+                        <label>🔑 Код доступа:</label>
+                        <input type="text" id="access-code-input" value="${this.escapeHtml(currentCode)}" 
+                               placeholder="Введите код доступа">
+                        <button id="save-access-code" class="btn-small">Сохранить</button>
+                    </div>
+                    <div class="setting-item">
+                        <button id="check-updates" class="btn-small">🔍 Проверить обновления</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        footer.innerHTML = settingsHtml + '<p>Версия: <span id="app-version">' + this.version + '</span></p>';
+        
+        // Привязываем обработчики
+        document.getElementById('check-updates')?.addEventListener('click', () => this.checkForUpdates(true));
+        document.getElementById('hard-reset')?.addEventListener('click', () => this.hardReset());
+        document.getElementById('save-access-code')?.addEventListener('click', () => {
+            const input = document.getElementById('access-code-input');
+            if (input) {
+                const code = input.value.trim();
+                if (this.setAccessCode(code)) {
+                    // Обновляем панель для отображения статуса
+                    this.renderSettingsPanel();
+                    // Если MQTT подключен, подписываемся на приватный топик
+                    if (this.client && this.client.isConnected() && this.privateTopicBase) {
+                        this.subscribeToPrivateTopic();
+                    }
+                    // Отправляем статус с обновленной информацией
+                    if (this.client && this.client.isConnected()) {
+                        this.publishStatus('online');
+                    }
+                }
+            }
+        });
+    }
+    
+    toggleSettings() {
+        const isExpanded = localStorage.getItem('settingsExpanded') === 'true';
+        localStorage.setItem('settingsExpanded', String(!isExpanded));
+        this.renderSettingsPanel();
+    }
+    
+    escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
     
     renderSensors() {
@@ -373,32 +517,25 @@ initMqttConnection() {
         
         let html = '';
         for (const [secId, secData] of sorted) {
-            const collapsed = this.sectionStates[secId] === true;
+            const expanded = this.sectionStates[secId] === true;
             html += `
                 <div class="data-section">
                     <div class="section-header" onclick="window.app.toggleSection('${secId}')">
                         <span class="section-title">${secData.title}</span>
-                        <span class="section-toggle">${collapsed ? '▶' : '▼'}</span>
+                        <span class="section-toggle">${expanded ? '▼' : '▶'}</span>
                     </div>
-                    <div class="section-content ${collapsed ? 'collapsed' : ''}">
+                    <div class="section-content ${expanded ? '' : 'collapsed'}">
                         <table class="data-table">
-                            <tbody>
-            `;
-            for (const s of secData.sensors) {
-                html += `
-                    <tr>
-                        <td class="sensor-value">${s.name}: ${s.value} ${s.unit}</td>
-                    </tr>
-                `;
-            }
-            html += `
-                            </tbody>
+                            <tbody>`;
+                                for (const s of secData.sensors) {
+                                    html += `<tr><td class="sensor-value">${s.name}: ${s.value} ${s.unit}</td>\(`;
+                                }
+            html += `   </tbody>
                         </table>
                     </div>
                 </div>
             `;
-        }
-        
+        }        
         this.sensorsGrid.innerHTML = html;
     }
     
@@ -420,18 +557,10 @@ initMqttConnection() {
         }
     }
     
-    updateConnectionStatus(on) {
-        const el = document.getElementById('connection-status');
-        if (el) {
-            el.textContent = on ? '🟢 Online' : '🔴 Offline';
-            el.className = 'status ' + (on ? 'online' : 'offline');
-        }
-    }
-    
     updateMQTTStatus(c) {
         const el = document.getElementById('mqtt-status');
         if (el) {
-            el.textContent = c ? '🟢 MQTT Connected' : '⚫ MQTT Disconnected';
+            el.textContent = c ? '🟢 Соединение установлено' : '⚫ Ожидание подключения';
             el.className = 'status ' + (c ? 'connected' : 'disconnected');
         }
     }
@@ -456,7 +585,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-// Отслеживание онлайн/офлайн статуса
-window.addEventListener('online', () => window.app?.updateConnectionStatus(true));
-window.addEventListener('offline', () => window.app?.updateConnectionStatus(false));

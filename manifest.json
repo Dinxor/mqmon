@@ -2,7 +2,7 @@
     "name": "MQTT Monitor",
     "short_name": "MQTT Monitor",
     "description": "Приложение для мониторинга MQTT",
-    "version": "1.0.5",
+    "version": "1.0.7",
     "start_url": "/mqmon/",
     "scope": "/mqmon/",
     "display": "standalone",

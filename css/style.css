@@ -142,6 +142,109 @@ footer {
     transform: translateY(1px);
 }
 
+/* Панель настроек */
+.settings-panel {
+    margin-bottom: 15px;
+    border-top: 1px solid #eee;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.settings-header:hover {
+    background: #e9ecef;
+}
+
+.settings-toggle {
+    font-size: 12px;
+    color: #667eea;
+}
+
+.settings-content {
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    max-height: 500px;
+    padding: 0 15px;
+}
+
+.settings-content.collapsed {
+    max-height: 0;
+    padding: 0 15px;
+}
+
+.setting-item {
+    margin-bottom: 15px;
+}
+
+.setting-item label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #667eea;
+    margin-bottom: 5px;
+}
+
+.app-id-display {
+    background: #f0f0f0;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+    margin-bottom: 5px;
+}
+
+.setting-item small {
+    font-size: 11px;
+    color: #999;
+}
+
+.setting-item input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.btn-small {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.3s ease;
+    margin-right: 10px;
+}
+
+.btn-small:hover {
+    background: #5a67d8;
+}
+
+.btn-small.btn-danger {
+    background: #dc3545;
+}
+
+.btn-small.btn-danger:hover {
+    background: #c82333;
+}
+
+.setting-item button {
+    margin-top: 5px;
+}
+
 /* Offline страница */
 .offline-container {
     text-align: center;
