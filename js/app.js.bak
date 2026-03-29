@@ -437,7 +437,6 @@ class MQTTPWAApp {
                     </div>
                     <div class="setting-item">
                         <button id="check-updates" class="btn-small">🔍 Проверить обновления</button>
-                        <button id="hard-reset" class="btn-small btn-danger">🗑️ Очистить данные</button>
                     </div>
                 </div>
             </div>
