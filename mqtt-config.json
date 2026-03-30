@@ -1,8 +1,9 @@
 {
     "broker_url": "broker.emqx.io",
-    "broker_port": 8084,
+    "broker_port": 8083,
     "topics": [
-        "homeassistant/sensor/B39F9958E0B249B4/1/#"
+        "homeassistant/sensor/B39F9958E0B249B4/1/#",
+        "homeassistant/sensor/B39F9958E0B249B4/2/#"
     ],
-    "private_topic": "homeassistant/sensor/D39F8758E1C748A3/1/#" 
+    "private_topic": "homeassistant/sensor/D39F8758E1C748A3/1/#"
 }

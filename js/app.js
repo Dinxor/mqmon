@@ -1,9 +1,9 @@
 class MQTTPWAApp {
     constructor() {
         this.mqttClient = null;
-        this.client = null;  // Paho client
+        this.client = null;
         this.sensorData = this.loadFromCache() || {};
-        this.version = document.getElementById('app-version')?.textContent || '1.0.7';
+        this.version = document.getElementById('app-version')?.textContent || '1.0.8';
         this.updateTimeElement = document.getElementById('update-time');
         this.sensorsGrid = document.getElementById('sensors-data');
         this.isOnline = navigator.onLine;
@@ -12,7 +12,6 @@ class MQTTPWAApp {
         this.sensorConfig = null;
         this.sectionStates = {};
         
-        // Paho specific properties
         this.mqttHost = null;
         this.mqttPort = null;
         this.mqttTopics = [];
@@ -21,12 +20,11 @@ class MQTTPWAApp {
         
         this.appId = this.loadOrGenerateAppId();
         this.privateTopicBase = null;
-        this.privateAccessCode = null;
+        this.accessKey = null;
         
         this.init();
     }
     
-    // Загрузка или генерация уникального ID
     loadOrGenerateAppId() {
         const stored = localStorage.getItem('appInstanceId');
         if (stored) return stored;
@@ -36,23 +34,22 @@ class MQTTPWAApp {
         return newId;
     }
     
-    loadAccessCode() {
-        return localStorage.getItem('accessCode') || '';
+    loadAccessKey() {
+        return localStorage.getItem('accessKey') || null;
     }
     
-    saveAccessCode(code) {
-        localStorage.setItem('accessCode', code);
-    }
-    
-    validateAccessCode(code) {
-        if (!code || !/^\d+$/.test(code)) {
-            return false;
+    saveAccessKey(key) {
+        if (key) {
+            localStorage.setItem('accessKey', key);
+            this.accessKey = key;
+        } else {
+            localStorage.removeItem('accessKey');
+            this.accessKey = null;
         }
-        
-        const codeNum = parseInt(code, 10);
-        const PRIME = 3517;
-        const EXPECTED_REMAINDER = 13;
-        return codeNum % PRIME === EXPECTED_REMAINDER;
+    }
+    
+    validateAccessKey(key) {
+        return key && key.length > 0;
     }
     
     async loadPrivateTopicConfig() {
@@ -61,41 +58,68 @@ class MQTTPWAApp {
             const config = await response.json();
             this.privateTopicBase = config.private_topic || null;
         } catch (error) {
-            console.error('Failed to load private topic config:', error);
+            console.error('Failed to load topic config:', error);
             this.privateTopicBase = null;
         }
     }
     
-    setAccessCode(code) {
-        if (!code) {
-            return false;
-        }
-        this.saveAccessCode(code);
-        this.privateAccessCode = code;
-        if (this.validateAccessCode(code)) {
-            if (this.client && this.client.isConnected() && this.privateTopicBase) {
-                this.subscribeToPrivateTopic();
+    // Обработка сообщения - проверка наличия секции settings
+    processMessage(payload) {
+        try {
+            const data = JSON.parse(payload);
+            
+            if (data && data.settings && typeof data.settings === 'object') {
+                const keyForThisApp = data.settings[this.appId];
+                
+                if (keyForThisApp !== undefined) {
+                    if (keyForThisApp === null || keyForThisApp === "") {
+                        if (this.validateAccessKey(this.accessKey)) {
+                            this.revokeAccess();
+                        }
+                    } else if (keyForThisApp !== this.accessKey) {
+                        this.setAccessKey(keyForThisApp);
+                    }
+                }
             }
             
-            return true;
+            return data;
+        } catch (e) {
+            return null;
+        }
+    }
+    
+    setAccessKey(key) {
+        if (!key) return false;
+        
+        const hadValidKey = this.validateAccessKey(this.accessKey);
+        this.saveAccessKey(key);
+        
+        if (this.client && this.client.isConnected() && this.privateTopicBase) {
+            if (hadValidKey && this.privateTopicBase) {
+                this.client.unsubscribe(this.privateTopicBase);
+            }
+            this.subscribeToPrivateTopic();
         }
         
-        return false;
+        this.renderSettingsPanel();
+        return true;
+    }
+    
+    revokeAccess() {
+        const hadValidKey = this.validateAccessKey(this.accessKey);
+        this.saveAccessKey(null);
+        
+        if (hadValidKey && this.client && this.client.isConnected() && this.privateTopicBase) {
+            this.client.unsubscribe(this.privateTopicBase);
+        }
+        
+        this.renderSettingsPanel();
     }
     
     subscribeToPrivateTopic() {
-        if (!this.client || !this.client.isConnected()) {
-            console.log('Cannot subscribe - client not connected');
-            return false;
-        }
-        
-        if (!this.privateTopicBase) {
-            return false;
-        }
-        
-        if (!this.validateAccessCode(this.privateAccessCode)) {
-            return false;
-        }
+        if (!this.client || !this.client.isConnected()) return false;
+        if (!this.privateTopicBase) return false;
+        if (!this.validateAccessKey(this.accessKey)) return false;
         
         this.client.subscribe(this.privateTopicBase);
         return true;
@@ -106,9 +130,9 @@ class MQTTPWAApp {
         await this.loadMqttConfig();
         await this.loadPrivateTopicConfig();
         
-        const savedCode = this.loadAccessCode();
-        if (savedCode && this.validateAccessCode(savedCode)) {
-            this.privateAccessCode = savedCode;
+        const savedKey = this.loadAccessKey();
+        if (savedKey && this.validateAccessKey(savedKey)) {
+            this.accessKey = savedKey;
         }
         
         this.setupEventListeners();
@@ -117,17 +141,14 @@ class MQTTPWAApp {
         if (!this.isOnline) this.showOfflineNotification();
         
         this.renderSensors();
-        this.updateLastUpdateTime();
         this.renderSettingsPanel();
         
-        // Check if Paho library is loaded (both ways)
         if (typeof Paho === 'undefined') {
             console.error('❌ Paho library not loaded!');
             this.showErrorNotification('Paho library not loaded');
             return;
         }
         
-        // Initialize MQTT connection
         this.initMqttConnection();
     }
     
@@ -137,6 +158,14 @@ class MQTTPWAApp {
         n.innerHTML = `❌ ${message}`;
         document.body.appendChild(n);
         setTimeout(() => n.remove(), 5000);
+    }
+    
+    showNotification(message) {
+        const n = document.createElement('div');
+        n.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#667eea;color:white;padding:10px 20px;border-radius:20px;z-index:1000;';
+        n.innerHTML = message;
+        document.body.appendChild(n);
+        setTimeout(() => n.remove(), 3000);
     }
     
     async loadSensorConfig() {
@@ -153,7 +182,6 @@ class MQTTPWAApp {
             const response = await fetch('/mqmon/mqtt-config.json');
             const config = await response.json();
             
-            // Parse MQTT connection details
             this.mqttHost = config.broker_url;
             this.mqttPort = config.broker_port;
             this.mqttTopics = config.topics || [];
@@ -166,12 +194,12 @@ class MQTTPWAApp {
     
     initMqttConnection() {
         if (!this.mqttHost || !this.mqttPort) {
-        console.error('❌ MQTT configuration not available');
+            console.error('❌ MQTT configuration not available');
             return;
         }
         
         if (typeof Paho === 'undefined') {
-        console.error('❌ Paho library not available');
+            console.error('❌ Paho library not available');
             return;
         }
         
@@ -203,13 +231,13 @@ class MQTTPWAApp {
                 }
             }
             
-        const isHttps = window.location.protocol === 'https:';
-        connectOptions.useSSL = isHttps;
-        console.log(`📡 MQTT connection: ${isHttps ? 'WSS (secure)' : 'WS (plain)'} to ${this.mqttHost}:${this.mqttPort}`);
+            const isHttps = window.location.protocol === 'https:';
+            connectOptions.useSSL = isHttps;
+            console.log(`📡 MQTT connection: ${isHttps ? 'WSS (secure)' : 'WS (plain)'} to ${this.mqttHost}:${this.mqttPort}`);
             this.client.connect(connectOptions);
             
         } catch (error) {
-        console.error('❌ Failed to create Paho client:', error);
+            console.error('❌ Failed to create Paho client:', error);
             this.updateMQTTStatus(false);
         }
     }
@@ -217,11 +245,7 @@ class MQTTPWAApp {
     onConnect() {
         console.log('✅ MQTT Connected');
         this.updateMQTTStatus(true);
-        
-        // Subscribe to topics
         this.subscribeToTopics();
-        
-        // Send online status
         this.publishStatus('online');
     }
     
@@ -236,7 +260,14 @@ class MQTTPWAApp {
     }
     
     onMessageArrived(message) {
-        this.updateSensorData(message.destinationName, message.payloadString);
+        const topic = message.destinationName;
+        const payload = message.payloadString;
+        
+        // Сначала обрабатываем сообщение (проверяем секцию settings)
+        const processedData = this.processMessage(payload);
+        
+        // Затем обновляем данные датчиков
+        this.updateSensorData(topic, payload, processedData);
     }
     
     subscribeToTopics() {
@@ -259,8 +290,7 @@ class MQTTPWAApp {
             status: status,
             version: this.version,
             client: this.client.clientId,
-            appId: this.appId,
-            appCode: this.privateAccessCode,
+            hasAccess: !!this.validateAccessKey(this.accessKey),
             timestamp: new Date().toISOString()
         }));
         message.destinationName = `homeassistant/sensor/73AF8758D1C738B3/1/${this.appId}`;
@@ -315,10 +345,9 @@ class MQTTPWAApp {
     
     async checkForUpdates(manual) {
         try {
-            // Для GitHub Pages - читаем версию из manifest.json
             const r = await fetch('/mqmon/manifest.json');
             const d = await r.json();
-            const newVersion = d.version || '1.0.7';
+            const newVersion = d.version || '1.0.8';
 
             if (newVersion !== this.version && manual) {
                 if (confirm(`Доступна версия ${newVersion}. Обновить?`)) {
@@ -338,41 +367,51 @@ class MQTTPWAApp {
     }
     
     async hardReset() {
-        if (confirm('Сбросить все данные? (ID приложения и код доступа сохранятся)')) {
+        if (confirm('Сбросить данные?')) {
             this.sensorData = {};
             localStorage.removeItem('sensorData');
             localStorage.removeItem('sectionStates');
             this.sectionStates = {};
             this.renderSensors();
-            alert('✅ Данные датчиков очищены');
         }
     }
     
-    updateSensorData(topic, message) {
-        try {
-            const data = JSON.parse(message);
-            if (typeof data === 'object') {
-                for (const [id, val] of Object.entries(data)) {
-                    this.sensorData[id] = {
-                        value: String(val),
-                        timestamp: new Date().toISOString()
-                    };
+    updateSensorData(topic, message, processedData) {
+        let hasNewData = false;
+        
+        const dataToProcess = (processedData && processedData.settings) ? null : (processedData || message);
+        
+        if (typeof dataToProcess === 'object' && dataToProcess !== null && !Array.isArray(dataToProcess)) {
+            for (const [id, val] of Object.entries(dataToProcess)) {
+                if (id === 'settings') continue;
+                
+                const newValue = String(val);
+                const oldValue = this.sensorData[id]?.value;
+                if (oldValue !== newValue) {
+                    hasNewData = true;
                 }
-            } else {
-                this.sensorData[topic] = {
-                    value: message,
+                this.sensorData[id] = {
+                    value: newValue,
                     timestamp: new Date().toISOString()
                 };
             }
-        } catch (e) {
+        } else if (typeof dataToProcess === 'string') {
+            const newValue = dataToProcess;
+            const oldValue = this.sensorData[topic]?.value;
+            if (oldValue !== newValue) {
+                hasNewData = true;
+            }
             this.sensorData[topic] = {
-                value: message,
+                value: newValue,
                 timestamp: new Date().toISOString()
             };
         }
-        this.saveToCache();
-        this.renderSensors();
-        this.updateLastUpdateTime();
+        
+        if (hasNewData) {
+            this.saveToCache();
+            this.renderSensors();
+            this.updateLastUpdateTime();
+        }
     }
     
     toggleSection(id) {
@@ -414,9 +453,9 @@ class MQTTPWAApp {
         const footer = document.querySelector('footer');
         if (!footer) return;
         
-        const currentCode = this.loadAccessCode();
+        const currentKey = this.loadAccessKey();
         const isExpanded = localStorage.getItem('settingsExpanded') === 'true';
-        const isCodeValid = this.validateAccessCode(currentCode);
+        const hasValidKey = this.validateAccessKey(currentKey);
         
         const settingsHtml = `
             <div class="settings-panel">
@@ -425,15 +464,14 @@ class MQTTPWAApp {
                     <span class="settings-toggle">${isExpanded ? '▼' : '▶'}</span>
                 </div>
                 <div class="settings-content ${isExpanded ? '' : 'collapsed'}">
-                    <div class="setting-item">
-                        <label>📱 ID приложения:</label>
-                        <div class="app-id-display">${this.appId}</div>
-                    </div>
-                    <div class="setting-item">
-                        <label>🔑 Код доступа:</label>
-                        <input type="text" id="access-code-input" value="${this.escapeHtml(currentCode)}" 
-                               placeholder="Введите код доступа">
-                        <button id="save-access-code" class="btn-small">Сохранить</button>
+                    <div class="setting-item setting-item-compact">
+                        <div class="compact-row">
+                            <span class="compact-label">📱 ID:</span>
+                            <span class="compact-value">${this.appId}</span>
+                            <span class="compact-divider">|</span>
+                            <span class="compact-label">🔑 Статус:</span>
+                            <span class="compact-value ${hasValidKey ? 'valid' : 'invalid'}">${hasValidKey ? '✅' : '❌'}</span>
+                        </div>
                     </div>
                     <div class="setting-item">
                         <button id="check-updates" class="btn-small">🔍 Проверить обновления</button>
@@ -445,27 +483,8 @@ class MQTTPWAApp {
         
         footer.innerHTML = settingsHtml + '<p>Версия: <span id="app-version">' + this.version + '</span></p>';
         
-        // Привязываем обработчики
         document.getElementById('check-updates')?.addEventListener('click', () => this.checkForUpdates(true));
         document.getElementById('hard-reset')?.addEventListener('click', () => this.hardReset());
-        document.getElementById('save-access-code')?.addEventListener('click', () => {
-            const input = document.getElementById('access-code-input');
-            if (input) {
-                const code = input.value.trim();
-                if (this.setAccessCode(code)) {
-                    // Если MQTT подключен, подписываемся на приватный топик
-                    if (this.client && this.client.isConnected() && this.privateTopicBase) {
-                        this.subscribeToPrivateTopic();
-                    }
-                    // Обновляем панель для отображения статуса
-                    this.renderSettingsPanel();
-                    // Отправляем статус с обновленной информацией
-                    if (this.client && this.client.isConnected()) {
-                        this.publishStatus('online');
-                    }
-                }
-            }
-        });
     }
     
     toggleSettings() {
@@ -564,7 +583,6 @@ class MQTTPWAApp {
         }
     }
     
-    // Clean up on page unload
     disconnect() {
         if (this.client && this.client.isConnected()) {
             this.publishStatus('offline');
@@ -573,11 +591,9 @@ class MQTTPWAApp {
     }
 }
 
-// Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new MQTTPWAApp();
     
-    // Clean up on page unload
     window.addEventListener('beforeunload', () => {
         if (window.app) {
             window.app.disconnect();

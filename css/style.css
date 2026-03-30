@@ -185,6 +185,47 @@ footer {
     margin-bottom: 15px;
 }
 
+/* Компактная строка для ID и статуса */
+.setting-item-compact {
+    margin-bottom: 15px;
+}
+
+.compact-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
+
+.compact-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #667eea;
+}
+
+.compact-value {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+}
+
+.compact-value.valid {
+    color: #2e7d32;
+}
+
+.compact-value.invalid {
+    color: #c62828;
+}
+
+.compact-divider {
+    color: #ccc;
+    margin: 0 4px;
+}
+
 .setting-item label {
     display: block;
     font-size: 13px;
@@ -275,6 +316,15 @@ footer {
     h1 {
         font-size: 24px;
     }
+    
+    .compact-row {
+        gap: 4px;
+    }
+    
+    .compact-label,
+    .compact-value {
+        font-size: 11px;
+    }
 }
 
 @keyframes slideIn {
@@ -288,15 +338,15 @@ footer {
     }
 }
 
-
 /* Таблица с секциями */
 .data-section {
     background: white;
     border-radius: 10px;
-    margin-bottom: 15px;
+    margin-bottom: 5px;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
+
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -307,21 +357,39 @@ footer {
     cursor: pointer;
     user-select: none;
 }
+
 .section-header:hover {
     background: linear-gradient(135deg, #5a67d8 0%, #6a4190 100%);
 }
-.section-title { font-size: 16px; font-weight: 600; }
-.section-toggle { font-size: 12px; }
+
+.section-title { 
+    font-size: 16px; 
+    font-weight: 600; 
+}
+
+.section-toggle { 
+    font-size: 12px; 
+}
+
 .section-content {
     overflow: hidden;
     transition: max-height 0.3s ease;
     max-height: 2000px;
 }
+
 .section-content.collapsed {
     max-height: 0;
 }
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table thead { background: #f8f9fa; }
+
+.data-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+}
+
+.data-table thead { 
+    background: #f8f9fa; 
+}
+
 .data-table th {
     padding: 12px 15px;
     text-align: left;
@@ -329,12 +397,52 @@ footer {
     color: #667eea;
     font-size: 13px;
 }
-.data-table th:last-child { text-align: right; }
-.data-table td { padding: 12px 15px; border-bottom: 1px solid #eee; }
-.data-table td:last-child { text-align: right; }
-.data-table tbody tr:hover { background: #f8f9fa; }
-.data-table tbody tr:last-child td { border-bottom: none; }
-.sensor-name { color: #333; font-weight: 500; }
-.sensor-value-cell { display: flex; justify-content: flex-end; gap: 5px; }
-.sensor-value-cell .value { font-size: 18px; font-weight: bold; color: #333; }
-.sensor-value-cell .unit { font-size: 12px; color: #666; }
+
+.data-table th:last-child { 
+    text-align: right; 
+}
+
+.data-table td { 
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+}
+
+.data-table td:last-child { 
+    text-align: right; 
+}
+
+.data-table tbody tr:hover { 
+    background: #f8f9fa; 
+}
+
+.data-table tbody tr:last-child td { 
+    border-bottom: none; 
+}
+
+.sensor-name { 
+    color: #333; 
+    font-weight: 500; 
+}
+
+.sensor-value-cell { 
+    display: flex; 
+    justify-content: flex-end; 
+    gap: 5px; 
+}
+
+.data-table .sensor-value {
+    font-size: 18px;
+    font-weight: normal;
+}
+
+.sensor-value-cell .value { 
+    font-size: 18px; 
+    font-weight: bold; 
+    color: #333; 
+}
+
+.sensor-value-cell .unit { 
+    font-size: 12px; 
+    color: #666; 
+}
