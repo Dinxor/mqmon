@@ -99,6 +99,7 @@ class MQTTPWAApp {
                 this.client.unsubscribe(this.privateTopicBase);
             }
             this.subscribeToPrivateTopic();
+            this.publishStatus('online');
         }
         
         this.renderSettingsPanel();
@@ -111,6 +112,7 @@ class MQTTPWAApp {
         
         if (hadValidKey && this.client && this.client.isConnected() && this.privateTopicBase) {
             this.client.unsubscribe(this.privateTopicBase);
+            this.publishStatus('online');
         }
         
         this.renderSettingsPanel();
