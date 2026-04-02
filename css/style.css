@@ -446,3 +446,18 @@ footer {
     font-size: 12px; 
     color: #666; 
 }
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.update-notification {
+    animation: slideIn 0.3s ease;
+}

@@ -1,23 +1,23 @@
-const CACHE_NAME = 'mqtt-pwa-v4';
-const STATIC_CACHE = 'static-v4';
-const VERSION_CHECK_INTERVAL = 60 * 60 * 1000; // Проверка обновлений раз в час
+// sw.js
+const STATIC_CACHE = 'static-v5';
 
+// Все пути абсолютные, от корня сайта
 const APP_ASSETS = [
-    '/',
-    '/index.html',
-    '/offline.html',
-    '/manifest.json',
-    '/mqtt-config.json',
-    '/sensor_config.json',
-    '/favicon.ico',
-    '/css/style.css',
-    '/js/app.js',
-    '/js/paho-mqtt.js',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    '/mqmon/',
+    '/mqmon/index.html',
+    '/mqmon/offline.html',
+    '/mqmon/manifest.json',
+    '/mqmon/mqtt-config.json',
+    '/mqmon/sensor_config.json',
+    '/mqmon/favicon.ico',
+    '/mqmon/css/style.css',
+    '/mqmon/js/app.js',
+    '/mqmon/js/paho-mqtt.js',
+    '/mqmon/icons/icon-192.png',
+    '/mqmon/icons/icon-512.png'
 ];
 
-// Установка Service Worker - кэшируем ВСЁ приложение сразу
+// Установка Service Worker
 self.addEventListener('install', (event) => {
     console.log('🔄 Service Worker installing...');
     
@@ -25,7 +25,6 @@ self.addEventListener('install', (event) => {
         caches.open(STATIC_CACHE)
             .then(cache => {
                 console.log('📦 Caching entire app...');
-                // Кэшируем по одному, чтобы ошибка с одним файлом не ломала всё
                 return Promise.allSettled(
                     APP_ASSETS.map(url => 
                         cache.add(url).catch(err => 
@@ -36,18 +35,17 @@ self.addEventListener('install', (event) => {
             })
             .then(() => {
                 console.log('✅ App cached, activating...');
-                return self.skipWaiting(); // Активируем сразу
+                return self.skipWaiting();
             })
     );
 });
 
-// Активация - удаляем старые кэши и берем управление
+// Активация - удаляем старые кэши
 self.addEventListener('activate', (event) => {
     console.log('🔄 Service Worker activating...');
     
     event.waitUntil(
         Promise.all([
-            // Удаляем все старые версии кэша
             caches.keys().then(keys => {
                 return Promise.all(
                     keys.filter(key => key !== STATIC_CACHE)
@@ -57,76 +55,67 @@ self.addEventListener('activate', (event) => {
                         })
                 );
             }),
-            // Немедленно начинаем управлять всеми клиентами
-            self.clients.claim(),
-            // Запускаем периодическую проверку обновлений
-            (async () => {
-                // Проверяем сразу после активации
-                const clients = await self.clients.matchAll();
-                if (clients.length > 0) {
-                    checkForUpdates(clients[0]);
-                }
-                
-                // И запускаем интервал
-                setInterval(async () => {
-                    const clients = await self.clients.matchAll();
-                    if (clients.length > 0) {
-                        checkForUpdates(clients[0]);
-                    }
-                }, VERSION_CHECK_INTERVAL);
-            })()
+            self.clients.claim()
         ])
     );
 });
 
-// Основная стратегия кэширования для GitHub Pages
+// Стратегия кэширования - Cache First для HTML
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
-    // Для навигационных запросов - пробуем сеть, потом кэш
+    // Для навигационных запросов - сначала кэш, потом сеть
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    // Кэшируем новые страницы
-                    const responseToCache = response.clone();
-                    caches.open(STATIC_CACHE)
-                        .then(cache => cache.put(event.request, responseToCache));
-                    return response;
-                })
-                .catch(() => {
-                    // Сеть недоступна - показываем офлайн страницу
-                    return caches.match('/mqmon/offline.html');
-                })
+            caches.match(event.request).then(cached => {
+                if (cached) {
+                    console.log('📱 Serving from cache:', event.request.url);
+                    
+                    // Фоновое обновление
+                    fetch(event.request)
+                        .then(response => {
+                            if (response && response.ok) {
+                                caches.open(STATIC_CACHE).then(cache => {
+                                    cache.put(event.request, response);
+                                });
+                            }
+                        })
+                        .catch(() => {});
+                    
+                    return cached;
+                }
+                
+                return fetch(event.request)
+                    .then(response => {
+                        if (response && response.ok) {
+                            const responseToCache = response.clone();
+                            caches.open(STATIC_CACHE).then(cache => {
+                                cache.put(event.request, responseToCache);
+                            });
+                        }
+                        return response;
+                    })
+                    .catch(() => {
+                        return caches.match('/mqmon/offline.html');
+                    });
+            })
         );
         return;
     }
     
-    // Для статических ресурсов - сначала кэш, потом сеть
+    // Для статических ресурсов - сначала кэш
     event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                if (response) {
-                    return response;
-                }
-                
-                // Нет в кэше - загружаем из сети
-                return fetch(event.request)
-                    .then(networkResponse => {
-                        if (networkResponse && networkResponse.status === 200) {
-                            const responseToCache = networkResponse.clone();
-                            caches.open(STATIC_CACHE)
-                                .then(cache => cache.put(event.request, responseToCache));
-                        }
-                        return networkResponse;
-                    })
-                    .catch(() => {
-                        // Для навигации без кэша - офлайн страница
-                        if (event.request.mode === 'navigate') {
-                            return caches.match('/mqmon/offline.html');
-                        }
+        caches.match(event.request).then(cached => {
+            return cached || fetch(event.request).then(response => {
+                if (response && response.status === 200) {
+                    const responseToCache = response.clone();
+                    caches.open(STATIC_CACHE).then(cache => {
+                        cache.put(event.request, responseToCache);
                     });
-            })
+                }
+                return response;
+            });
+        })
     );
 });
 
@@ -137,7 +126,6 @@ self.addEventListener('message', (event) => {
     }
     
     if (event.data.type === 'UPDATE_READY') {
-        // Принудительно обновляем кэш
         updateAppCache().then(success => {
             event.source.postMessage({
                 type: 'UPDATE_COMPLETE',
@@ -145,69 +133,23 @@ self.addEventListener('message', (event) => {
             });
         });
     }
-    
-    if (event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
 });
 
-// Обработка возвращения онлайн
-self.addEventListener('online', () => {
-    console.log('🟢 Back online, checking for updates...');
-    self.clients.matchAll().then(clients => {
-        if (clients.length > 0) {
-            checkForUpdates(clients[0]);
-        }
-    });
-});
-
-// Обработка sync событий (фоновая синхронизация)
-self.addEventListener('sync', (event) => {
-    if (event.tag === 'update-check') {
-        event.waitUntil(
-            self.clients.matchAll().then(clients => {
-                if (clients.length > 0) {
-                    return checkForUpdates(clients[0]);
-                }
-            })
-        );
-    }
-});
-
-// Обработка periodicsync (если поддерживается)
-self.addEventListener('periodicsync', (event) => {
-    if (event.tag === 'update-check') {
-        event.waitUntil(
-            self.clients.matchAll().then(clients => {
-                if (clients.length > 0) {
-                    return checkForUpdates(clients[0]);
-                }
-            })
-        );
-    }
-});
-
-// Проверка обновлений (вызывается из приложения)
+// Проверка обновлений
 async function checkForUpdates(client) {
     try {
         console.log('🔍 Checking for updates...');
         
-        // Для читаем версию из manifest.json
-        const response = await fetch(`/mqmon/manifest.json?_=${Date.now()}`, {
+        const response = await fetch('/mqmon/manifest.json?_=' + Date.now(), {
             cache: 'no-store',
-            headers: {
-                'Cache-Control': 'no-cache'
-            }
+            headers: { 'Cache-Control': 'no-cache' }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
         const serverVersion = data.version || '1.0.0';
 
-        // Получаем текущую версию из кэша
         const cache = await caches.open(STATIC_CACHE);
         const cachedManifest = await cache.match('/mqmon/manifest.json');
 
@@ -226,7 +168,6 @@ async function checkForUpdates(client) {
                 });
                 return true;
             } else {
-                console.log('✅ App is up to date');
                 client.postMessage({
                     type: 'UPDATE_CHECKED',
                     message: 'App is up to date'
@@ -244,125 +185,39 @@ async function checkForUpdates(client) {
     }
 }
 
-// Обновление кэша приложения
+// Обновление кэша
 async function updateAppCache() {
     console.log('📦 Updating app cache...');
     
     try {
-        // Создаем новый кэш с временным именем
         const newCacheName = `${STATIC_CACHE}-new-${Date.now()}`;
         const newCache = await caches.open(newCacheName);
         
-        // Загружаем все ресурсы заново
-        const results = await Promise.allSettled(
-            APP_ASSETS.map(async url => {
-                try {
-                    const response = await fetch(url, {
-                        cache: 'no-store',
-                        headers: {
-                            'Cache-Control': 'no-cache'
+        await Promise.allSettled(
+            APP_ASSETS.map(url => 
+                fetch(url, { cache: 'no-store' })
+                    .then(response => {
+                        if (response.ok) {
+                            return newCache.put(url, response);
                         }
-                    });
-                    
-                    if (response.ok) {
-                        await newCache.put(url, response);
-                        console.log(`✅ Updated: ${url}`);
-                    } else {
-                        console.log(`⚠️ Failed to update ${url}: ${response.status}`);
-                    }
-                } catch (err) {
-                    console.log(`⚠️ Failed to fetch ${url}:`, err.message);
-                }
-            })
+                    })
+                    .catch(err => console.log(`⚠️ Failed to fetch ${url}:`, err.message))
+            )
         );
         
-        // Проверяем, обновилось ли что-то
-        const successCount = results.filter(r => r.status === 'fulfilled').length;
-        
-        if (successCount > 0) {
-            // Удаляем старый кэш
-            await caches.delete(STATIC_CACHE);
-            
-            // Переименовываем новый кэш в основной
-            await caches.delete(STATIC_CACHE); // На всякий случай удаляем еще раз
-            const keys = await caches.keys();
-            const actualNewCache = keys.find(key => key.startsWith(`${STATIC_CACHE}-new-`));
-            if (actualNewCache) {
-                await caches.delete(STATIC_CACHE);
-                await caches.rename(actualNewCache, STATIC_CACHE);
-            }
-            
-            console.log(`✅ App cache updated (${successCount}/${APP_ASSETS.length} files)`);
-            
-            // Уведомляем все клиенты об обновлении
-            const clients = await self.clients.matchAll();
-            clients.forEach(client => {
-                client.postMessage({
-                    type: 'CACHE_UPDATED'
-                });
-            });
-            
-            return true;
-        } else {
-            console.log('❌ No files were updated');
-            await caches.delete(newCacheName);
-            return false;
+        await caches.delete(STATIC_CACHE);
+        const keys = await caches.keys();
+        const actualNewCache = keys.find(key => key.startsWith(`${STATIC_CACHE}-new-`));
+        if (actualNewCache) {
+            await caches.rename(actualNewCache, STATIC_CACHE);
         }
+        
+        console.log('✅ App cache updated');
+        return true;
     } catch (error) {
         console.log('❌ Update failed:', error);
         return false;
     }
 }
 
-// Обработка push уведомлений
-self.addEventListener('push', (event) => {
-    const data = event.data.json();
-    
-    const options = {
-        body: data.body || 'Новое обновление доступно',
-        icon: '/mqmon/icons/icon-192.png',
-        badge: '/mqmon/icons/icon-192.png',
-        vibrate: [200, 100, 200],
-        data: {
-            url: data.url || '/mqmon/'
-        },
-        actions: [
-            {
-                action: 'update',
-                title: 'Обновить сейчас'
-            },
-            {
-                action: 'later',
-                title: 'Позже'
-            }
-        ]
-    };
-    
-    event.waitUntil(
-        self.registration.showNotification('MQTT Monitor', options)
-    );
-});
-
-// Обработка клика по уведомлению
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-    
-    if (event.action === 'update') {
-        // Запускаем обновление
-        event.waitUntil(
-            self.clients.matchAll().then(clients => {
-                if (clients.length > 0) {
-                    clients[0].postMessage({
-                        type: 'UPDATE_READY'
-                    });
-                }
-            })
-        );
-    } else {
-        event.waitUntil(
-            clients.openWindow(event.notification.data.url)
-        );
-    }
-});
-
-console.log('🚀 Service Worker loaded and ready');
+console.log('🚀 Service Worker loaded');
