@@ -35,6 +35,10 @@
         "9": {
             "title": "📊 Время работы цех 32",
             "order": 9
+        },
+        "10": {
+            "title": "📊 Цех ДСП",
+            "order": 10
         }
     },
     "sensors": {
@@ -401,6 +405,36 @@
         "tm59": {
             "name": "Пила АЦ",
             "section": "4",
+            "unit": ""
+        },
+        "dsp_temp_bar1": {
+            "name": "Барабан 1",
+            "section": "10",
+            "unit": "°C"
+        },
+        "dsp_temp_bar2": {
+            "name": "Барабан 2",
+            "section": "10",
+            "unit": "°C"
+        },
+        "dsp_temp_bar3": {
+            "name": "Барабан 3",
+            "section": "10",
+            "unit": "°C"
+        },
+        "dsp_temp_bar4": {
+            "name": "Барабан 4",
+            "section": "10",
+            "unit": "°C"
+        },
+        "dsp_davl_obr": {
+            "name": "Давление обратки",
+            "section": "10",
+            "unit": ""
+        },
+        "dsp_davl_press": {
+            "name": "Давление пресса",
+            "section": "10",
             "unit": ""
         }
     }
