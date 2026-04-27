@@ -1,41 +1,33 @@
 // sw.js
-const BASE_PATH = '/mqmon';
 const STATIC_CACHE = 'static-v5';
-
-// Конфиги должны обновляться периодически, а не на каждый запуск
-const CONFIG_CACHE = 'config-v1';
-const CONFIG_URLS = [
-    `${BASE_PATH}/mqtt-config.json`,
-    `${BASE_PATH}/sensor_config.json`
-];
-const CONFIG_UPDATE_INTERVAL = 6 * 60 * 60 * 1000; // раз в 6 часов
 
 // Все пути абсолютные, от корня сайта
 const APP_ASSETS = [
-    `${BASE_PATH}/`,
-    `${BASE_PATH}/index.html`,
-    `${BASE_PATH}/offline.html`,
-    `${BASE_PATH}/manifest.json`,
-    // ⚠️ конфиги не кладём в STATIC_CACHE при установке — будем обновлять по интервалу
-    `${BASE_PATH}/favicon.ico`,
-    `${BASE_PATH}/css/style.css`,
-    `${BASE_PATH}/js/app.js`,
-    `${BASE_PATH}/js/paho-mqtt.js`,
-    `${BASE_PATH}/icons/icon-192.png`,
-    `${BASE_PATH}/icons/icon-512.png`
+    '/mqmon/',
+    '/mqmon/index.html',
+    '/mqmon/offline.html',
+    '/mqmon/manifest.json',
+    '/mqmon/mqtt-config.json',
+    '/mqmon/sensor_config.json',
+    '/mqmon/favicon.ico',
+    '/mqmon/css/style.css',
+    '/mqmon/js/app.js',
+    '/mqmon/js/paho-mqtt.js',
+    '/mqmon/icons/icon-192.png',
+    '/mqmon/icons/icon-512.png'
 ];
 
 // Установка Service Worker
 self.addEventListener('install', (event) => {
     console.log('🔄 Service Worker installing...');
-
+    
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(cache => {
                 console.log('📦 Caching entire app...');
                 return Promise.allSettled(
-                    APP_ASSETS.map(url =>
-                        cache.add(url).catch(err =>
+                    APP_ASSETS.map(url => 
+                        cache.add(url).catch(err => 
                             console.log(`⚠️ Failed to cache ${url}:`, err.message)
                         )
                     )
@@ -51,12 +43,12 @@ self.addEventListener('install', (event) => {
 // Активация - удаляем старые кэши
 self.addEventListener('activate', (event) => {
     console.log('🔄 Service Worker activating...');
-
+    
     event.waitUntil(
         Promise.all([
             caches.keys().then(keys => {
                 return Promise.all(
-                    keys.filter(key => key !== STATIC_CACHE && key !== CONFIG_CACHE)
+                    keys.filter(key => key !== STATIC_CACHE)
                         .map(key => {
                             console.log('🗑️ Removing old cache:', key);
                             return caches.delete(key);
@@ -71,20 +63,14 @@ self.addEventListener('activate', (event) => {
 // Стратегия кэширования - Cache First для HTML
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-
-    // Конфиги: Stale-While-Revalidate с ограничением по интервалу
-    if (url.pathname === `${BASE_PATH}/mqtt-config.json` || url.pathname === `${BASE_PATH}/sensor_config.json`) {
-        event.respondWith(handleConfigRequest(event.request));
-        return;
-    }
-
+    
     // Для навигационных запросов - сначала кэш, потом сеть
     if (event.request.mode === 'navigate') {
         event.respondWith(
             caches.match(event.request).then(cached => {
                 if (cached) {
                     console.log('📱 Serving from cache:', event.request.url);
-
+                    
                     // Фоновое обновление
                     fetch(event.request)
                         .then(response => {
@@ -95,10 +81,10 @@ self.addEventListener('fetch', (event) => {
                             }
                         })
                         .catch(() => {});
-
+                    
                     return cached;
                 }
-
+                
                 return fetch(event.request)
                     .then(response => {
                         if (response && response.ok) {
@@ -110,13 +96,13 @@ self.addEventListener('fetch', (event) => {
                         return response;
                     })
                     .catch(() => {
-                        return caches.match(`${BASE_PATH}/offline.html`);
+                        return caches.match('/mqmon/offline.html');
                     });
             })
         );
         return;
     }
-
+    
     // Для статических ресурсов - сначала кэш
     event.respondWith(
         caches.match(event.request).then(cached => {
@@ -232,72 +218,6 @@ async function updateAppCache() {
         console.log('❌ Update failed:', error);
         return false;
     }
-}
-
-async function handleConfigRequest(request) {
-    const cache = await caches.open(CONFIG_CACHE);
-    const cached = await cache.match(request);
-
-    // Быстрая отдача из кэша (если есть)
-    if (cached) {
-        // Решаем, нужно ли обновлять в фоне (не на каждый запуск)
-        const now = Date.now();
-        const key = `cfg:lastUpdate:${new URL(request.url).pathname}`;
-        const last = Number(await getMeta(key)) || 0;
-        const due = (now - last) > CONFIG_UPDATE_INTERVAL;
-
-        if (due) {
-            eventlessBackgroundUpdateConfig(request, cache, key).catch(() => {});
-        }
-
-        return cached;
-    }
-
-    // Первый запрос / нет кэша — идём в сеть и кэшируем
-    try {
-        const resp = await fetch(request, {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-        });
-        if (resp && resp.ok) {
-            await cache.put(request, resp.clone());
-            await setMeta(`cfg:lastUpdate:${new URL(request.url).pathname}`, String(Date.now()));
-        }
-        return resp;
-    } catch (e) {
-        // офлайн и нет кэша
-        return new Response(JSON.stringify({ error: 'offline' }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
-}
-
-async function eventlessBackgroundUpdateConfig(request, cache, metaKey) {
-    // Обновление без блокировки ответа
-    try {
-        const resp = await fetch(request, {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-        });
-        if (resp && resp.ok) {
-            await cache.put(request, resp.clone());
-        }
-    } finally {
-        await setMeta(metaKey, String(Date.now()));
-    }
-}
-
-// Храним метаданные в Cache Storage (спец. запросы), чтобы не зависеть от clients/localStorage
-async function getMeta(key) {
-    const metaCache = await caches.open(CONFIG_CACHE);
-    const r = await metaCache.match(`meta:${key}`);
-    return r ? r.text() : null;
-}
-
-async function setMeta(key, value) {
-    const metaCache = await caches.open(CONFIG_CACHE);
-    await metaCache.put(`meta:${key}`, new Response(value));
 }
 
 console.log('🚀 Service Worker loaded');
