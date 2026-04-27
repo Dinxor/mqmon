@@ -77,11 +77,6 @@
             "section": "2",
             "unit": "°C"
         },
-        "pool1": {
-            "name": "Бассейн 1",
-            "section": "2",
-            "unit": "°C"
-        },
         "pool2": {
             "name": "Бассейн 2",
             "section": "2",

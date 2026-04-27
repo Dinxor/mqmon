@@ -3,7 +3,7 @@ class MQTTPWAApp {
         this.mqttClient = null;
         this.client = null;
         this.sensorData = this.loadFromCache() || {};
-        this.version = document.getElementById('app-version')?.textContent || '1.0.8';
+        this.version = document.getElementById('app-version')?.textContent || '1.1.2';
         this.updateTimeElement = document.getElementById('update-time');
         this.sensorsGrid = document.getElementById('sensors-data');
         this.isOnline = navigator.onLine;
