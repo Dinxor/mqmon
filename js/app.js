@@ -349,7 +349,7 @@ class MQTTPWAApp {
         try {
             const r = await fetch('/mqmon/manifest.json');
             const d = await r.json();
-            const newVersion = d.version || '1.0.8';
+            const newVersion = d.version || '1.1.3';
 
             if (newVersion !== this.version && manual) {
                 if (confirm(`Доступна версия ${newVersion}. Обновить?`)) {
