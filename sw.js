@@ -1,121 +1,147 @@
 // sw.js
+const BASE_PATH = '/mqmon';
 const STATIC_CACHE = 'static-v5';
+
+// Управляем "текущим" кэшем через мета-ключ, чтобы обновлять без caches.rename()
+const STATIC_META_CACHE = 'static-meta-v1';
+const STATIC_CURRENT_KEY = 'static:current';
+
+// Конфиги должны обновляться периодически, а не на каждый запуск
+const CONFIG_CACHE = 'config-v1';
+const CONFIG_URLS = [
+    `${BASE_PATH}/mqtt-config.json`,
+    `${BASE_PATH}/sensor_config.json`
+];
+const CONFIG_UPDATE_INTERVAL = 6 * 60 * 60 * 1000; // раз в 6 часов
 
 // Все пути абсолютные, от корня сайта
 const APP_ASSETS = [
-    '/mqmon/',
-    '/mqmon/index.html',
-    '/mqmon/offline.html',
-    '/mqmon/manifest.json',
-    '/mqmon/mqtt-config.json',
-    '/mqmon/sensor_config.json',
-    '/mqmon/favicon.ico',
-    '/mqmon/css/style.css',
-    '/mqmon/js/app.js',
-    '/mqmon/js/paho-mqtt.js',
-    '/mqmon/icons/icon-192.png',
-    '/mqmon/icons/icon-512.png'
+    `${BASE_PATH}/`,
+    `${BASE_PATH}/index.html`,
+    `${BASE_PATH}/offline.html`,
+    `${BASE_PATH}/manifest.json`,
+    // ⚠️ конфиги не кладём в STATIC_CACHE при установке — будем обновлять по интервалу
+    `${BASE_PATH}/favicon.ico`,
+    `${BASE_PATH}/css/style.css`,
+    `${BASE_PATH}/js/app.js`,
+    `${BASE_PATH}/js/paho-mqtt.js`,
+    `${BASE_PATH}/icons/icon-192.png`,
+    `${BASE_PATH}/icons/icon-512.png`
 ];
 
 // Установка Service Worker
 self.addEventListener('install', (event) => {
     console.log('🔄 Service Worker installing...');
-    
-    event.waitUntil(
-        caches.open(STATIC_CACHE)
-            .then(cache => {
-                console.log('📦 Caching entire app...');
-                return Promise.allSettled(
-                    APP_ASSETS.map(url => 
-                        cache.add(url).catch(err => 
-                            console.log(`⚠️ Failed to cache ${url}:`, err.message)
-                        )
-                    )
-                );
-            })
-            .then(() => {
-                console.log('✅ App cached, activating...');
-                return self.skipWaiting();
-            })
-    );
+
+    event.waitUntil((async () => {
+        const current = await getCurrentStaticCacheName();
+        const cache = await caches.open(current);
+
+        console.log('📦 Caching entire app...');
+        await Promise.allSettled(
+            APP_ASSETS.map(url =>
+                cache.add(url).catch(err =>
+                    console.log(`⚠️ Failed to cache ${url}:`, err.message)
+                )
+            )
+        );
+
+        console.log('✅ App cached, activating...');
+        await self.skipWaiting();
+    })());
 });
 
 // Активация - удаляем старые кэши
 self.addEventListener('activate', (event) => {
     console.log('🔄 Service Worker activating...');
-    
-    event.waitUntil(
-        Promise.all([
-            caches.keys().then(keys => {
-                return Promise.all(
-                    keys.filter(key => key !== STATIC_CACHE)
-                        .map(key => {
-                            console.log('🗑️ Removing old cache:', key);
-                            return caches.delete(key);
-                        })
-                );
-            }),
-            self.clients.claim()
-        ])
-    );
+
+    event.waitUntil((async () => {
+        const current = await getCurrentStaticCacheName();
+
+        // Удаляем только устаревшие кэши, оставляя:
+        // - текущий статик-кэш
+        // - мета-хранилище статик-кэша
+        // - кэш конфигов
+        const keys = await caches.keys();
+        await Promise.all(
+            keys
+                .filter(key => key !== current && key !== STATIC_META_CACHE && key !== CONFIG_CACHE)
+                .map(key => {
+                    console.log('🗑️ Removing old cache:', key);
+                    return caches.delete(key);
+                })
+        );
+
+        await self.clients.claim();
+    })());
 });
 
 // Стратегия кэширования - Cache First для HTML
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-    
+
+    // Конфиги: Stale-While-Revalidate с ограничением по интервалу
+    if (url.pathname === `${BASE_PATH}/mqtt-config.json` || url.pathname === `${BASE_PATH}/sensor_config.json`) {
+        event.respondWith(handleConfigRequest(event.request));
+        return;
+    }
+
     // Для навигационных запросов - сначала кэш, потом сеть
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            caches.match(event.request).then(cached => {
+            (async () => {
+                const current = await getCurrentStaticCacheName();
+                const cache = await caches.open(current);
+                const cached = await cache.match(event.request);
                 if (cached) {
                     console.log('📱 Serving from cache:', event.request.url);
-                    
+
                     // Фоновое обновление
                     fetch(event.request)
                         .then(response => {
                             if (response && response.ok) {
-                                caches.open(STATIC_CACHE).then(cache => {
-                                    cache.put(event.request, response);
+                                caches.open(current).then(c => {
+                                    c.put(event.request, response.clone());
                                 });
                             }
                         })
                         .catch(() => {});
-                    
+
                     return cached;
                 }
-                
+
                 return fetch(event.request)
                     .then(response => {
                         if (response && response.ok) {
                             const responseToCache = response.clone();
-                            caches.open(STATIC_CACHE).then(cache => {
-                                cache.put(event.request, responseToCache);
+                            caches.open(current).then(c => {
+                                c.put(event.request, responseToCache);
                             });
                         }
                         return response;
                     })
                     .catch(() => {
-                        return caches.match('/mqmon/offline.html');
+                        return cache.match(`${BASE_PATH}/offline.html`);
                     });
-            })
+            })()
         );
         return;
     }
-    
+
     // Для статических ресурсов - сначала кэш
     event.respondWith(
-        caches.match(event.request).then(cached => {
-            return cached || fetch(event.request).then(response => {
-                if (response && response.status === 200) {
-                    const responseToCache = response.clone();
-                    caches.open(STATIC_CACHE).then(cache => {
-                        cache.put(event.request, responseToCache);
-                    });
-                }
-                return response;
-            });
-        })
+        (async () => {
+            const current = await getCurrentStaticCacheName();
+            const cache = await caches.open(current);
+            const cached = await cache.match(event.request);
+            if (cached) return cached;
+
+            const response = await fetch(event.request);
+            if (response && response.status === 200) {
+                await cache.put(event.request, response.clone());
+            }
+            return response;
+        })()
     );
 });
 
@@ -150,7 +176,8 @@ async function checkForUpdates(client) {
         const data = await response.json();
         const serverVersion = data.version || '1.0.0';
 
-        const cache = await caches.open(STATIC_CACHE);
+        const current = await getCurrentStaticCacheName();
+        const cache = await caches.open(current);
         const cachedManifest = await cache.match('/mqmon/manifest.json');
 
         if (cachedManifest) {
@@ -188,36 +215,124 @@ async function checkForUpdates(client) {
 // Обновление кэша
 async function updateAppCache() {
     console.log('📦 Updating app cache...');
-    
+
     try {
-        const newCacheName = `${STATIC_CACHE}-new-${Date.now()}`;
-        const newCache = await caches.open(newCacheName);
-        
+        const current = await getCurrentStaticCacheName();
+        const next = `${STATIC_CACHE}-${Date.now()}`;
+        const nextCache = await caches.open(next);
+
         await Promise.allSettled(
-            APP_ASSETS.map(url => 
+            APP_ASSETS.map(url =>
                 fetch(url, { cache: 'no-store' })
                     .then(response => {
-                        if (response.ok) {
-                            return newCache.put(url, response);
+                        if (response && response.ok) {
+                            return nextCache.put(url, response.clone());
                         }
                     })
                     .catch(err => console.log(`⚠️ Failed to fetch ${url}:`, err.message))
             )
         );
-        
-        await caches.delete(STATIC_CACHE);
-        const keys = await caches.keys();
-        const actualNewCache = keys.find(key => key.startsWith(`${STATIC_CACHE}-new-`));
-        if (actualNewCache) {
-            await caches.rename(actualNewCache, STATIC_CACHE);
+
+        // Переключаем "текущий" кэш атомарно через мета-ключ
+        await setStaticMeta(STATIC_CURRENT_KEY, next);
+
+        // Старый кэш удаляем после переключения
+        if (current && current !== next) {
+            await caches.delete(current);
         }
-        
+
         console.log('✅ App cache updated');
         return true;
     } catch (error) {
         console.log('❌ Update failed:', error);
         return false;
     }
+}
+
+async function handleConfigRequest(request) {
+    const cache = await caches.open(CONFIG_CACHE);
+    const cached = await cache.match(request);
+
+    // Быстрая отдача из кэша (если есть)
+    if (cached) {
+        // Решаем, нужно ли обновлять в фоне (не на каждый запрос)
+        const now = Date.now();
+        const key = `cfg:lastUpdate:${new URL(request.url).pathname}`;
+        const last = Number(await getMeta(key)) || 0;
+        const due = (now - last) > CONFIG_UPDATE_INTERVAL;
+
+        if (due) {
+            // Обновляем в фоне без блокировки ответа
+            eventlessBackgroundUpdateConfig(request, cache, key).catch(() => {});
+        }
+
+        return cached;
+    }
+
+    // Первый запрос / нет кэша — идём в сеть и кэшируем
+    try {
+        const resp = await fetch(request, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (resp && resp.ok) {
+            await cache.put(request, resp.clone());
+            await setMeta(`cfg:lastUpdate:${new URL(request.url).pathname}`, String(Date.now()));
+        }
+        return resp;
+    } catch (e) {
+        // офлайн и нет кэша
+        return new Response(JSON.stringify({ error: 'offline' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+}
+
+async function eventlessBackgroundUpdateConfig(request, cache, metaKey) {
+    // Обновление без блокировки ответа
+    try {
+        const resp = await fetch(request, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (resp && resp.ok) {
+            await cache.put(request, resp.clone());
+        }
+    } finally {
+        await setMeta(metaKey, String(Date.now()));
+    }
+}
+
+// Храним метаданные в Cache Storage (спец. запросы), чтобы не зависеть от clients/localStorage
+async function getMeta(key) {
+    const metaCache = await caches.open(CONFIG_CACHE);
+    const r = await metaCache.match(`meta:${key}`);
+    return r ? r.text() : null;
+}
+
+async function setMeta(key, value) {
+    const metaCache = await caches.open(CONFIG_CACHE);
+    await metaCache.put(`meta:${key}`, new Response(value));
+}
+
+// Метаданные для управления текущим static cache
+async function getStaticMeta(key) {
+    const metaCache = await caches.open(STATIC_META_CACHE);
+    const r = await metaCache.match(`meta:${key}`);
+    return r ? r.text() : null;
+}
+
+async function setStaticMeta(key, value) {
+    const metaCache = await caches.open(STATIC_META_CACHE);
+    await metaCache.put(`meta:${key}`, new Response(value));
+}
+
+async function getCurrentStaticCacheName() {
+    const v = (await getStaticMeta(STATIC_CURRENT_KEY)) || '';
+    const name = String(v).trim();
+    // значение по умолчанию и фоллбек для первого запуска
+    return name || STATIC_CACHE;
 }
 
 console.log('🚀 Service Worker loaded');

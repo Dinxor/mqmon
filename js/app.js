@@ -3,7 +3,7 @@ class MQTTPWAApp {
         this.mqttClient = null;
         this.client = null;
         this.sensorData = this.loadFromCache() || {};
-        this.version = document.getElementById('app-version')?.textContent || '1.1.3';
+        this.version = document.getElementById('app-version')?.textContent || '1.1.4';
         this.updateTimeElement = document.getElementById('update-time');
         this.sensorsGrid = document.getElementById('sensors-data');
         this.isOnline = navigator.onLine;
@@ -27,11 +27,51 @@ class MQTTPWAApp {
     
     loadOrGenerateAppId() {
         const stored = localStorage.getItem('appInstanceId');
-        if (stored) return stored;
-        
+        if (stored) {
+            // Миграция для существующих клиентов: продублировать appId в Cache Storage
+            this.persistAppIdToCache(stored).catch(() => {});
+            return stored;
+        }
+
+        // Пытаемся восстановить из Cache Storage (если localStorage очищен, но кэш ещё жив)
+        // Это снижает вероятность смены ClientID при обновлениях.
+        // Важно: тут нужен синхронный фоллбек, поэтому читаем кэш в init() до создания MQTT client.
+
         const newId = Math.floor(Math.random() * 90000000 + 10000000).toString();
         localStorage.setItem('appInstanceId', newId);
+        // Для новых клиентов сразу пишем в Cache Storage
+        this.persistAppIdToCache(newId).catch(() => {});
         return newId;
+    }
+
+    async restoreAppIdFromCache() {
+        try {
+            const cache = await caches.open('mqmon-meta-v1');
+            const r = await cache.match('meta:appInstanceId');
+            const t = r ? (await r.text()) : '';
+            const v = String(t || '').trim();
+            // простая валидация: 8 цифр
+            if (/^\d{8}$/.test(v)) {
+                this._restoredAppIdFromCache = v;
+                return v;
+            }
+        } catch {
+            // ignore
+        }
+        return null;
+    }
+
+    async persistAppIdToCache(appId) {
+        // Cache Storage доступен из window, пишем туда, чтобы переживать часть сценариев обновлений.
+        // Важно: при полной очистке данных сайта браузером пропадёт и Cache Storage.
+        try {
+            const cache = await caches.open('mqmon-meta-v1');
+            await cache.put('meta:appInstanceId', new Response(String(appId), {
+                headers: { 'Content-Type': 'text/plain' }
+            }));
+        } catch {
+            // игнорируем — приложение продолжит работать с localStorage
+        }
     }
     
     loadAccessKey() {
@@ -128,29 +168,41 @@ class MQTTPWAApp {
     }
     
     async init() {
+        // Перед любыми сетевыми действиями пытаемся восстановить appId из Cache Storage,
+        // если localStorage был очищен, а кэш ещё сохранился.
+        if (!localStorage.getItem('appInstanceId')) {
+            await this.restoreAppIdFromCache();
+            if (this._restoredAppIdFromCache) {
+                localStorage.setItem('appInstanceId', this._restoredAppIdFromCache);
+                this.appId = this._restoredAppIdFromCache;
+                // на всякий случай закрепим обратно
+                this.persistAppIdToCache(this.appId).catch(() => {});
+            }
+        }
+
         await this.loadSensorConfig();
         await this.loadMqttConfig();
         await this.loadPrivateTopicConfig();
-        
+
         const savedKey = this.loadAccessKey();
         if (savedKey && this.validateAccessKey(savedKey)) {
             this.accessKey = savedKey;
         }
-        
+
         this.setupEventListeners();
-        
+
         if (this.serviceWorkerSupported) await this.waitForServiceWorker();
         if (!this.isOnline) this.showOfflineNotification();
-        
+
         this.renderSensors();
         this.renderSettingsPanel();
-        
+
         if (typeof Paho === 'undefined') {
             console.error('❌ Paho library not loaded!');
             this.showErrorNotification('Paho library not loaded');
             return;
         }
-        
+
         this.initMqttConnection();
     }
     
@@ -349,7 +401,7 @@ class MQTTPWAApp {
         try {
             const r = await fetch('/mqmon/manifest.json');
             const d = await r.json();
-            const newVersion = d.version || '1.1.3';
+            const newVersion = d.version || '1.1.4';
 
             if (newVersion !== this.version && manual) {
                 if (confirm(`Доступна версия ${newVersion}. Обновить?`)) {
