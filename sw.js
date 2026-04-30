@@ -1,6 +1,6 @@
 // sw.js
 const BASE_PATH = '/mqmon';
-const STATIC_CACHE = 'static-v5';
+const STATIC_CACHE = 'static-v7';
 
 // Управляем "текущим" кэшем через мета-ключ, чтобы обновлять без caches.rename()
 const STATIC_META_CACHE = 'static-meta-v1';

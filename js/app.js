@@ -3,7 +3,7 @@ class MQTTPWAApp {
         this.mqttClient = null;
         this.client = null;
         this.sensorData = this.loadFromCache() || {};
-        this.version = document.getElementById('app-version')?.textContent || '1.1.4';
+        this.version = document.getElementById('app-version')?.textContent || '1.1.5';
         this.updateTimeElement = document.getElementById('update-time');
         this.sensorsGrid = document.getElementById('sensors-data');
         this.isOnline = navigator.onLine;
@@ -401,7 +401,7 @@ class MQTTPWAApp {
         try {
             const r = await fetch('/mqmon/manifest.json');
             const d = await r.json();
-            const newVersion = d.version || '1.1.4';
+            const newVersion = d.version || '1.1.5';
 
             if (newVersion !== this.version && manual) {
                 if (confirm(`Доступна версия ${newVersion}. Обновить?`)) {
@@ -478,10 +478,10 @@ class MQTTPWAApp {
         if (sectionId === '3') {
             const match = String(value).match(/^([\d.]+)N([\d.]+)$/);
             if (match) {
-                return { value: match[1], unit: + match[2] };
+                return { value: match[1], unit: +match[2] };
             }
         }
-        
+
         const numId = Number(sectionId);
         if (numId >= 4 && numId <= 9) {
             const val = String(value);
@@ -493,13 +493,19 @@ class MQTTPWAApp {
                     const timePart = remainder.substring(0, colonPos + 3);
                     const minutes = remainder.substring(colonPos + 3);
                     if (S === 'w') {
-                        return { value: timePart + '  Работает ', unit: minutes + ' мин' };
+                        return {
+                            value: `${timePart}  <span class="run-status run-status--work">Работает</span>`,
+                            unit: `${minutes} мин`
+                        };
                     }
-                    return { value: timePart + '  Стоит ', unit: minutes + ' мин' };
+                    return {
+                        value: `${timePart}  <span class="run-status run-status--stop">Стоит</span>`,
+                        unit: `${minutes} мин`
+                    };
                 }
             }
         }
-        
+
         return { value: value, unit: '' };
     }
     
@@ -555,11 +561,11 @@ class MQTTPWAApp {
     
     renderSensors() {
         if (!this.sensorsGrid) return;
-        
+
         const sensors = this.sensorConfig?.sensors || {};
         const sections = this.sensorConfig?.sections || {};
         const grouped = {};
-        
+
         for (const [id, d] of Object.entries(this.sensorData)) {
             const info = sensors[id] || {};
             const sec = info.section || 'other';
@@ -599,15 +605,15 @@ class MQTTPWAApp {
                     <div class="section-content ${expanded ? '' : 'collapsed'}">
                         <table class="data-table">
                             <tbody>`;
-                                for (const s of secData.sensors) {
-                                    html += `<tr><td class="sensor-value">${s.name}: ${s.value} ${s.unit}</td></tr>`;
-                                }
+            for (const s of secData.sensors) {
+                html += `<tr><td class="sensor-value">${this.escapeHtml(s.name)}: ${s.value} ${this.escapeHtml(String(s.unit ?? ''))}</td></tr>`;
+            }
             html += `   </tbody>
                         </table>
                     </div>
                 </div>
             `;
-        }        
+        }
         this.sensorsGrid.innerHTML = html;
     }
     

@@ -96,6 +96,26 @@ h1 {
     margin-bottom: 5px;
 }
 
+/* Статус "Работает/Стоит" внутри значения */
+.run-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.4;
+    vertical-align: middle;
+}
+
+.run-status--work {
+    background: #00C851;
+}
+
+.run-status--stop {
+    background: #ff4444;
+}
+
 .sensor-unit {
     color: #666;
     font-size: 14px;
