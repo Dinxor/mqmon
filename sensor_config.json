@@ -428,14 +428,19 @@
             "unit": "°C"
         },
         "dsp_davl_obr": {
-            "name": "Давление обратки",
+            "name": "Температура топки",
             "section": "10",
-            "unit": ""
+            "unit": "°C"
         },
         "dsp_davl_press": {
             "name": "Давление пресса",
             "section": "10",
-            "unit": ""
+            "unit": "атм"
+        },
+        "dsp_temp_bar6": {
+            "name": "Разрежение топки",
+            "section": "10",
+            "unit": "Па"
         }
     }
 }
